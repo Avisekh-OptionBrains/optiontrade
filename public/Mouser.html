@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>User Data Form</title>
+    <style>
+      /* General Body Styling */
+      body {
+        font-family: "Arial", sans-serif;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        background: linear-gradient(135deg, #ffdd00, #ffc107, #ffd700);
+        color: #333;
+      }
+
+      /* Form Container Styling */
+      form {
+        max-width: 500px;
+        width: 90%;
+        background: #fffbe6;
+        padding: 30px;
+        border-radius: 12px;
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+      }
+
+      /* Form Title Styling */
+      h1 {
+        text-align: center;
+        margin-bottom: 20px;
+        font-size: 1.8rem;
+        color: #ffb300;
+      }
+
+      /* Label Styling */
+      label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: #6a5e10;
+        font-size: 0.9rem;
+      }
+
+      /* Input Fields Styling */
+      input {
+        width: 100%;
+        padding: 12px;
+        margin-bottom: 20px;
+        border: 1px solid #e5c400;
+        border-radius: 8px;
+        font-size: 1rem;
+        background-color: #fff9cc;
+        transition: all 0.3s ease;
+      }
+
+      input:focus {
+        border-color: #ffcc00;
+        box-shadow: 0 0 5px rgba(255, 204, 0, 0.7);
+        outline: none;
+        background-color: #fffdd0;
+      }
+
+      /* Button Styling */
+      button {
+        width: 100%;
+        padding: 14px;
+        background: linear-gradient(135deg, #ffc107, #ffdd00);
+        color: #4d4000;
+        border: none;
+        border-radius: 8px;
+        font-size: 1rem;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
+
+      button:hover {
+        background: linear-gradient(135deg, #ffdd00, #ffc107);
+        box-shadow: 0 5px 15px rgba(255, 204, 0, 0.4);
+      }
+
+      /* Success and Error Messages */
+      .message {
+        text-align: center;
+        margin-top: 20px;
+        padding: 10px;
+        border-radius: 8px;
+        font-size: 0.9rem;
+      }
+
+      .success {
+        background-color: #e8f5e9;
+        color: #2e7d32;
+        border: 1px solid #c8e6c9;
+      }
+
+      .error {
+        background-color: #ffebee;
+        color: #c62828;
+        border: 1px solid #ef9a9a;
+      }
+    </style>
+  </head>
+  <body>
+    <form id="userForm">
+      <h1>User Data Form</h1>
+
+      <label for="userId">User ID</label>
+      <input
+        type="text"
+        id="userId"
+        name="userId"
+        placeholder="Enter your User ID"
+        required
+      />
+
+      <label for="password">Password</label>
+      <input
+        type="password"
+        id="password"
+        name="password"
+        placeholder="Enter your Password"
+        required
+      />
+
+      <label for="apiKey">API Key</label>
+      <input
+        type="text"
+        id="apiKey"
+        name="apiKey"
+        placeholder="Enter your API Key"
+        required
+      />
+
+      <label for="twoFA">Two-Factor Authentication</label>
+      <input
+        type="text"
+        id="twoFA"
+        name="twoFA"
+        placeholder="Enter your 2FA Code"
+        required
+      />
+
+      <label for="totpKey">TOTP Key</label>
+      <input
+        type="text"
+        id="totpKey"
+        name="totpKey"
+        placeholder="Enter your TOTP Key"
+        required
+      />
+
+      <label for="clientName">Client Name</label>
+      <input
+        type="text"
+        id="clientName"
+        name="clientName"
+        placeholder="Enter your Client Name"
+        required
+      />
+
+      <label for="email">Email</label>
+      <input
+        type="email"
+        id="email"
+        name="email"
+        placeholder="Enter your Email Address"
+        required
+      />
+
+      <label for="phoneNumber">Phone Number</label>
+      <input
+        type="tel"
+        id="phoneNumber"
+        name="phoneNumber"
+        placeholder="Enter your Phone Number"
+        required
+      />
+
+      <label for="capital">Capital:</label>
+      <input
+        type="number"
+        id="capital"
+        name="capital"
+        placeholder="Enter Capital Amount"
+        required
+      />
+
+      <label for="authToken">Auth Token (Optional)</label>
+      <input
+        type="text"
+        id="authToken"
+        name="authToken"
+        placeholder="Enter your Auth Token (if available)"
+      />
+
+      <button type="button" onclick="submitForm()">Submit</button>
+
+      <div id="message" class="message" style="display: none"></div>
+    </form>
+
+    <script>
+      async function submitForm() {
+        const formData = {
+          userId: document.getElementById("userId").value,
+          password: document.getElementById("password").value,
+          apiKey: document.getElementById("apiKey").value,
+          twoFA: document.getElementById("twoFA").value,
+          totpKey: document.getElementById("totpKey").value,
+          clientName: document.getElementById("clientName").value,
+          email: document.getElementById("email").value,
+          phoneNumber: document.getElementById("phoneNumber").value,
+          authToken: document.getElementById("authToken").value || null,
+          capital: parseFloat(document.getElementById("capital").value),
+        };
+
+        if (isNaN(formData.capital) || formData.capital <= 0) {
+          alert("Please enter a valid capital amount greater than 0.");
+          return;
+        }
+
+        try {
+          const response = await fetch("/api/users/save-auth-token", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(formData),
+          });
+
+          const result = await response.json();
+          const messageDiv = document.getElementById("message");
+
+          if (response.ok) {
+            messageDiv.style.display = "block";
+            messageDiv.className = "message success";
+            messageDiv.innerText = "User data saved successfully!";
+            document.getElementById("userForm").reset();
+          } else {
+            messageDiv.style.display = "block";
+            messageDiv.className = "message error";
+            messageDiv.innerText = `Error: ${
+              result.error || "Unknown error occurred."
+            }`;
+          }
+        } catch (error) {
+          const messageDiv = document.getElementById("message");
+          messageDiv.style.display = "block";
+          messageDiv.className = "message error";
+          messageDiv.innerText = "An error occurred while submitting the form.";
+        }
+      }
+    </script>
+  </body>
+</html>

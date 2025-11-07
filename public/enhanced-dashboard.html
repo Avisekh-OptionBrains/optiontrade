@@ -1,0 +1,1271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Epicrise Trading Platform - Enhanced Dashboard</title>
+    
+    <!-- CSS Dependencies -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/chart.js@4.3.0/dist/chart.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/animate.css@4.1.1/animate.min.css" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary-color: #6366f1;
+            --secondary-color: #8b5cf6;
+            --success-color: #10b981;
+            --danger-color: #ef4444;
+            --warning-color: #f59e0b;
+            --info-color: #06b6d4;
+            --dark-color: #1f2937;
+            --light-color: #f9fafb;
+            --border-radius: 12px;
+            --box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: var(--dark-color);
+        }
+
+        .main-container {
+            background: var(--light-color);
+            min-height: 100vh;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Header Styles */
+        .header {
+            background: white;
+            box-shadow: var(--box-shadow);
+            padding: 1rem 0;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .header .navbar-brand {
+            font-weight: 700;
+            font-size: 1.5rem;
+            color: var(--primary-color);
+        }
+
+        .header .nav-link {
+            color: var(--dark-color);
+            font-weight: 500;
+            transition: color 0.3s ease;
+        }
+
+        .header .nav-link:hover {
+            color: var(--primary-color);
+        }
+
+        /* Sidebar Styles */
+        .sidebar {
+            background: white;
+            box-shadow: var(--box-shadow);
+            min-height: calc(100vh - 80px);
+            padding: 2rem 0;
+        }
+
+        .sidebar .nav-link {
+            color: var(--dark-color);
+            padding: 0.75rem 1.5rem;
+            margin: 0.25rem 1rem;
+            border-radius: var(--border-radius);
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .sidebar .nav-link:hover,
+        .sidebar .nav-link.active {
+            background: var(--primary-color);
+            color: white;
+            transform: translateX(5px);
+        }
+
+        /* Card Styles */
+        .enhanced-card {
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            border: none;
+            transition: all 0.3s ease;
+            overflow: hidden;
+        }
+
+        .enhanced-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 25px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Stat Cards */
+        .stat-card {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 2rem;
+            border-radius: var(--border-radius);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 100px;
+            height: 100px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            transform: translate(30px, -30px);
+        }
+
+        .stat-card.success {
+            background: linear-gradient(135deg, var(--success-color), #059669);
+        }
+
+        .stat-card.danger {
+            background: linear-gradient(135deg, var(--danger-color), #dc2626);
+        }
+
+        .stat-card.warning {
+            background: linear-gradient(135deg, var(--warning-color), #d97706);
+        }
+
+        .stat-card.info {
+            background: linear-gradient(135deg, var(--info-color), #0891b2);
+        }
+
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            opacity: 0.9;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-icon {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            font-size: 2rem;
+            opacity: 0.3;
+        }
+
+        /* Table Styles */
+        .enhanced-table {
+            background: white;
+            border-radius: var(--border-radius);
+            overflow: hidden;
+            box-shadow: var(--box-shadow);
+        }
+
+        .table thead th {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.875rem;
+            letter-spacing: 0.5px;
+            padding: 1rem;
+        }
+
+        .table tbody td {
+            padding: 1rem;
+            border-color: #e5e7eb;
+            vertical-align: middle;
+        }
+
+        .table tbody tr:hover {
+            background: #f9fafb;
+        }
+
+        /* Status Badges */
+        .status-badge {
+            padding: 0.375rem 0.75rem;
+            border-radius: 50px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-success {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .status-danger {
+            background: #fef2f2;
+            color: #991b1b;
+        }
+
+        .status-warning {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .status-info {
+            background: #e0f2fe;
+            color: #0c4a6e;
+        }
+
+        /* Loading Animation */
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .sidebar {
+                display: none;
+            }
+            
+            .main-content {
+                margin-left: 0 !important;
+            }
+            
+            .stat-number {
+                font-size: 2rem;
+            }
+        }
+
+        /* Real-time Indicator */
+        .live-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: var(--success-color);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+            margin-right: 0.5rem;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        /* Chart Container */
+        .chart-container {
+            position: relative;
+            height: 400px;
+            background: white;
+            border-radius: var(--border-radius);
+            padding: 1.5rem;
+            box-shadow: var(--box-shadow);
+        }
+
+        /* Action Buttons */
+        .action-btn {
+            border: none;
+            border-radius: var(--border-radius);
+            padding: 0.5rem 1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .btn-primary {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .btn-success {
+            background: var(--success-color);
+            color: white;
+        }
+
+        .btn-danger {
+            background: var(--danger-color);
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <!-- Header -->
+        <header class="header">
+            <nav class="navbar navbar-expand-lg">
+                <div class="container-fluid">
+                    <a class="navbar-brand" href="#">
+                        <i class="fas fa-chart-line me-2"></i>
+                        Epicrise Trading Platform
+                    </a>
+                    
+                    <div class="d-flex align-items-center">
+                        <span class="live-indicator"></span>
+                        <span class="text-success fw-bold me-3">Live</span>
+                        
+                        <div class="dropdown">
+                            <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                <i class="fas fa-user me-2"></i>Admin
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="#"><i class="fas fa-cog me-2"></i>Settings</a></li>
+                                <li><a class="dropdown-item" href="#"><i class="fas fa-sign-out-alt me-2"></i>Logout</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+        </header>
+
+        <div class="container-fluid">
+            <div class="row">
+                <!-- Sidebar -->
+                <div class="col-md-2 p-0">
+                    <div class="sidebar">
+                        <nav class="nav flex-column">
+                            <a class="nav-link active" href="#" data-section="dashboard">
+                                <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+                            </a>
+                            <a class="nav-link" href="#" data-section="orders">
+                                <i class="fas fa-shopping-cart me-2"></i>Orders
+                            </a>
+                            <a class="nav-link" href="#" data-section="messages">
+                                <i class="fas fa-envelope me-2"></i>Messages
+                            </a>
+                            <a class="nav-link" href="#" data-section="clients">
+                                <i class="fas fa-users me-2"></i>Clients
+                            </a>
+                            <a class="nav-link" href="#" data-section="analytics">
+                                <i class="fas fa-chart-bar me-2"></i>Analytics
+                            </a>
+                            <a class="nav-link" href="#" data-section="settings">
+                                <i class="fas fa-cog me-2"></i>Settings
+                            </a>
+                        </nav>
+                    </div>
+                </div>
+
+                <!-- Main Content -->
+                <div class="col-md-10 main-content" style="margin-left: 0;">
+                    <div class="p-4">
+                        <!-- Dashboard Section -->
+                        <div id="dashboard-section" class="content-section">
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <h2 class="fw-bold">Trading Dashboard</h2>
+                                <button class="btn btn-primary action-btn" onclick="refreshData()">
+                                    <i class="fas fa-sync-alt me-2"></i>Refresh
+                                </button>
+                            </div>
+
+                            <!-- Statistics Cards -->
+                            <div class="row mb-4">
+                                <div class="col-md-3 mb-3">
+                                    <div class="stat-card animate__animated animate__fadeInUp">
+                                        <i class="fas fa-envelope stat-icon"></i>
+                                        <div class="stat-number" id="totalMessages">0</div>
+                                        <div class="stat-label">Total Messages</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <div class="stat-card success animate__animated animate__fadeInUp" style="animation-delay: 0.1s;">
+                                        <i class="fas fa-check-circle stat-icon"></i>
+                                        <div class="stat-number" id="successfulOrders">0</div>
+                                        <div class="stat-label">Successful Orders</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <div class="stat-card danger animate__animated animate__fadeInUp" style="animation-delay: 0.2s;">
+                                        <i class="fas fa-times-circle stat-icon"></i>
+                                        <div class="stat-number" id="failedOrders">0</div>
+                                        <div class="stat-label">Failed Orders</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <div class="stat-card info animate__animated animate__fadeInUp" style="animation-delay: 0.3s;">
+                                        <i class="fas fa-chart-line stat-icon"></i>
+                                        <div class="stat-number" id="totalOrders">0</div>
+                                        <div class="stat-label">Total Orders</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Charts Row -->
+                            <div class="row mb-4">
+                                <div class="col-md-8">
+                                    <div class="chart-container">
+                                        <h5 class="mb-3">Order Trends</h5>
+                                        <canvas id="orderTrendsChart"></canvas>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="chart-container">
+                                        <h5 class="mb-3">Success Rate</h5>
+                                        <canvas id="successRateChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Recent Orders Table -->
+                            <div class="enhanced-table">
+                                <div class="table-responsive">
+                                    <table class="table table-hover mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th>Time</th>
+                                                <th>Client</th>
+                                                <th>Symbol</th>
+                                                <th>Type</th>
+                                                <th>Quantity</th>
+                                                <th>Price</th>
+                                                <th>Status</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="ordersTableBody">
+                                            <tr>
+                                                <td colspan="8" class="text-center py-4">
+                                                    <div class="loading-spinner me-2"></div>
+                                                    Loading orders...
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Orders Management Section -->
+                        <div id="orders-section" class="content-section d-none">
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <h2 class="fw-bold">Orders Management</h2>
+                                <div>
+                                    <button class="btn btn-outline-primary me-2" onclick="refreshOrders()">
+                                        <i class="fas fa-sync-alt me-2"></i>Refresh
+                                    </button>
+                                    <button class="btn btn-primary" onclick="exportOrders()">
+                                        <i class="fas fa-download me-2"></i>Export
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Order Filters -->
+                            <div class="enhanced-card mb-4">
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-3">
+                                            <label class="form-label">Broker</label>
+                                            <select class="form-select" id="orderBrokerFilter">
+                                                <option value="">All Brokers</option>
+                                                <option value="ANGEL">Angel One</option>
+                                                <option value="MOTILAL">Motilal Oswal</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label">Status</label>
+                                            <select class="form-select" id="orderStatusFilter">
+                                                <option value="">All Status</option>
+                                                <option value="SUCCESS">Success</option>
+                                                <option value="FAILED">Failed</option>
+                                                <option value="PENDING">Pending</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label">Date Range</label>
+                                            <input type="date" class="form-control" id="orderDateFilter">
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label">Symbol</label>
+                                            <input type="text" class="form-control" id="orderSymbolFilter" placeholder="Search symbol...">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Orders Table -->
+                            <div class="enhanced-table">
+                                <div class="table-responsive">
+                                    <table class="table table-hover mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th>Order ID</th>
+                                                <th>Time</th>
+                                                <th>Client</th>
+                                                <th>Broker</th>
+                                                <th>Symbol</th>
+                                                <th>Type</th>
+                                                <th>Quantity</th>
+                                                <th>Price</th>
+                                                <th>Status</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="ordersManagementTableBody">
+                                            <tr>
+                                                <td colspan="10" class="text-center py-4">
+                                                    <div class="loading-spinner me-2"></div>
+                                                    Loading orders...
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Messages Section -->
+                        <div id="messages-section" class="content-section d-none">
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <h2 class="fw-bold">Trading Messages</h2>
+                                <button class="btn btn-primary" onclick="testMessage()">
+                                    <i class="fas fa-paper-plane me-2"></i>Test Message
+                                </button>
+                            </div>
+
+                            <!-- Message Statistics -->
+                            <div class="row mb-4">
+                                <div class="col-md-4">
+                                    <div class="enhanced-card p-3">
+                                        <div class="d-flex align-items-center">
+                                            <div class="bg-primary rounded-circle p-3 me-3">
+                                                <i class="fas fa-envelope text-white"></i>
+                                            </div>
+                                            <div>
+                                                <h4 class="mb-0" id="totalMessagesCount">0</h4>
+                                                <small class="text-muted">Total Messages</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="enhanced-card p-3">
+                                        <div class="d-flex align-items-center">
+                                            <div class="bg-success rounded-circle p-3 me-3">
+                                                <i class="fas fa-check text-white"></i>
+                                            </div>
+                                            <div>
+                                                <h4 class="mb-0" id="processedMessagesCount">0</h4>
+                                                <small class="text-muted">Processed</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="enhanced-card p-3">
+                                        <div class="d-flex align-items-center">
+                                            <div class="bg-info rounded-circle p-3 me-3">
+                                                <i class="fas fa-clock text-white"></i>
+                                            </div>
+                                            <div>
+                                                <h4 class="mb-0" id="todayMessagesCount">0</h4>
+                                                <small class="text-muted">Today</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Recent Messages -->
+                            <div class="enhanced-card">
+                                <div class="card-header bg-white">
+                                    <h5 class="mb-0">Recent Messages</h5>
+                                </div>
+                                <div class="card-body p-0">
+                                    <div class="table-responsive">
+                                        <table class="table table-hover mb-0">
+                                            <thead>
+                                                <tr>
+                                                    <th>Time</th>
+                                                    <th>Symbol</th>
+                                                    <th>Action</th>
+                                                    <th>Price</th>
+                                                    <th>Stop Loss</th>
+                                                    <th>Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="messagesTableBody">
+                                                <tr>
+                                                    <td colspan="6" class="text-center py-4">
+                                                        <div class="loading-spinner me-2"></div>
+                                                        Loading messages...
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Clients Section -->
+                        <div id="clients-section" class="content-section d-none">
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <h2 class="fw-bold">Client Management</h2>
+                                <a href="user-management.html" class="btn btn-primary">
+                                    <i class="fas fa-external-link-alt me-2"></i>Full Management
+                                </a>
+                            </div>
+
+                            <!-- Client Statistics -->
+                            <div class="row mb-4">
+                                <div class="col-md-3">
+                                    <div class="enhanced-card p-3">
+                                        <div class="text-center">
+                                            <h3 class="text-primary mb-2" id="clientsTotal">0</h3>
+                                            <p class="text-muted mb-0">Total Clients</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="enhanced-card p-3">
+                                        <div class="text-center">
+                                            <h3 class="text-success mb-2" id="clientsActive">0</h3>
+                                            <p class="text-muted mb-0">Active Clients</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="enhanced-card p-3">
+                                        <div class="text-center">
+                                            <h3 class="text-warning mb-2" id="angelClientsCount">0</h3>
+                                            <p class="text-muted mb-0">Angel One</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="enhanced-card p-3">
+                                        <div class="text-center">
+                                            <h3 class="text-info mb-2" id="motilalClientsCount">0</h3>
+                                            <p class="text-muted mb-0">Motilal Oswal</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Quick Client List -->
+                            <div class="enhanced-card">
+                                <div class="card-header bg-white">
+                                    <h5 class="mb-0">Recent Client Activity</h5>
+                                </div>
+                                <div class="card-body p-0">
+                                    <div class="table-responsive">
+                                        <table class="table table-hover mb-0">
+                                            <thead>
+                                                <tr>
+                                                    <th>Client Name</th>
+                                                    <th>Broker</th>
+                                                    <th>Capital</th>
+                                                    <th>Status</th>
+                                                    <th>Last Active</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="clientsTableBody">
+                                                <tr>
+                                                    <td colspan="5" class="text-center py-4">
+                                                        <div class="loading-spinner me-2"></div>
+                                                        Loading clients...
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Analytics Section -->
+                        <div id="analytics-section" class="content-section d-none">
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <h2 class="fw-bold">Advanced Analytics</h2>
+                                <div>
+                                    <select class="form-select d-inline-block w-auto me-2" id="analyticsTimeframe">
+                                        <option value="24h">Last 24 Hours</option>
+                                        <option value="7d">Last 7 Days</option>
+                                        <option value="30d">Last 30 Days</option>
+                                    </select>
+                                    <button class="btn btn-primary" onclick="refreshAnalytics()">
+                                        <i class="fas fa-sync-alt me-2"></i>Refresh
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Performance Metrics -->
+                            <div class="row mb-4">
+                                <div class="col-md-6">
+                                    <div class="chart-container">
+                                        <h5 class="mb-3">Broker Performance</h5>
+                                        <canvas id="brokerPerformanceChart"></canvas>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="chart-container">
+                                        <h5 class="mb-3">Trading Volume</h5>
+                                        <canvas id="tradingVolumeChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Top Symbols -->
+                            <div class="enhanced-card">
+                                <div class="card-header bg-white">
+                                    <h5 class="mb-0">Top Performing Symbols</h5>
+                                </div>
+                                <div class="card-body p-0">
+                                    <div class="table-responsive">
+                                        <table class="table table-hover mb-0">
+                                            <thead>
+                                                <tr>
+                                                    <th>Symbol</th>
+                                                    <th>Total Orders</th>
+                                                    <th>Success Rate</th>
+                                                    <th>Avg Price</th>
+                                                    <th>Total Volume</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="topSymbolsTableBody">
+                                                <tr>
+                                                    <td colspan="5" class="text-center py-4">
+                                                        <div class="loading-spinner me-2"></div>
+                                                        Loading analytics...
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Settings Section -->
+                        <div id="settings-section" class="content-section d-none">
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <h2 class="fw-bold">System Settings</h2>
+                                <button class="btn btn-success" onclick="saveSettings()">
+                                    <i class="fas fa-save me-2"></i>Save Settings
+                                </button>
+                            </div>
+
+                            <div class="row">
+                                <!-- Trading Settings -->
+                                <div class="col-md-6">
+                                    <div class="enhanced-card mb-4">
+                                        <div class="card-header bg-white">
+                                            <h5 class="mb-0">Trading Configuration</h5>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="mb-3">
+                                                <label class="form-label">Default Stop Loss %</label>
+                                                <input type="number" class="form-control" id="defaultStopLoss" value="2.5" step="0.1">
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Auto Trading</label>
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox" id="autoTrading" checked>
+                                                    <label class="form-check-label" for="autoTrading">
+                                                        Enable automatic order placement
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Risk Management</label>
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox" id="riskManagement" checked>
+                                                    <label class="form-check-label" for="riskManagement">
+                                                        Enable risk management checks
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- System Settings -->
+                                <div class="col-md-6">
+                                    <div class="enhanced-card mb-4">
+                                        <div class="card-header bg-white">
+                                            <h5 class="mb-0">System Configuration</h5>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="mb-3">
+                                                <label class="form-label">Refresh Interval (seconds)</label>
+                                                <input type="number" class="form-control" id="refreshInterval" value="30" min="5">
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Log Level</label>
+                                                <select class="form-select" id="logLevel">
+                                                    <option value="error">Error</option>
+                                                    <option value="warn">Warning</option>
+                                                    <option value="info" selected>Info</option>
+                                                    <option value="debug">Debug</option>
+                                                </select>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Notifications</label>
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox" id="notifications" checked>
+                                                    <label class="form-check-label" for="notifications">
+                                                        Enable browser notifications
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- System Status -->
+                            <div class="enhanced-card">
+                                <div class="card-header bg-white">
+                                    <h5 class="mb-0">System Status</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-3">
+                                            <div class="text-center">
+                                                <div class="text-success mb-2">
+                                                    <i class="fas fa-check-circle fa-2x"></i>
+                                                </div>
+                                                <h6>Database</h6>
+                                                <small class="text-success">Connected</small>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="text-center">
+                                                <div class="text-success mb-2">
+                                                    <i class="fas fa-wifi fa-2x"></i>
+                                                </div>
+                                                <h6>WebSocket</h6>
+                                                <small class="text-success">Active</small>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="text-center">
+                                                <div class="text-success mb-2">
+                                                    <i class="fas fa-chart-line fa-2x"></i>
+                                                </div>
+                                                <h6>Trading</h6>
+                                                <small class="text-success">Operational</small>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="text-center">
+                                                <div class="text-info mb-2">
+                                                    <i class="fas fa-server fa-2x"></i>
+                                                </div>
+                                                <h6>Server</h6>
+                                                <small class="text-info" id="serverUptime">Loading...</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.3.0/dist/chart.min.js"></script>
+    <script src="enhanced-dashboard.js?v=8"></script>
+
+    <!-- Comprehensive Enhanced Dashboard Script -->
+    <script>
+        console.log('Enhanced Dashboard Script Loaded');
+
+        // Global dashboard object
+        window.enhancedDashboard = {
+            currentSection: 'dashboard',
+            autoRefreshInterval: null,
+
+            // Initialize dashboard
+            init() {
+                console.log('Initializing Enhanced Dashboard...');
+                this.setupEventListeners();
+                this.loadDashboardData();
+                this.startAutoRefresh();
+            },
+
+            // Setup event listeners
+            setupEventListeners() {
+                // Navigation links
+                document.querySelectorAll('[data-section]').forEach(link => {
+                    link.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        this.switchSection(e.target.dataset.section);
+                    });
+                });
+            },
+
+            // Switch between sections
+            switchSection(sectionName) {
+                console.log('Switching to section:', sectionName);
+
+                // Update active nav link
+                document.querySelectorAll('[data-section]').forEach(link => {
+                    link.classList.remove('active');
+                });
+                document.querySelector(`[data-section="${sectionName}"]`).classList.add('active');
+
+                // Hide all sections
+                document.querySelectorAll('.content-section').forEach(section => {
+                    section.classList.add('d-none');
+                });
+
+                // Show selected section
+                document.getElementById(`${sectionName}-section`).classList.remove('d-none');
+
+                this.currentSection = sectionName;
+
+                // Load section-specific data
+                this.loadSectionData(sectionName);
+            },
+
+            // Load data for specific section
+            async loadSectionData(section) {
+                switch(section) {
+                    case 'dashboard':
+                        await this.loadDashboardData();
+                        break;
+                    case 'orders':
+                        await this.loadOrdersData();
+                        break;
+                    case 'messages':
+                        await this.loadMessagesData();
+                        break;
+                    case 'clients':
+                        await this.loadClientsData();
+                        break;
+                    case 'analytics':
+                        await this.loadAnalyticsData();
+                        break;
+                    case 'settings':
+                        await this.loadSystemStatus();
+                        break;
+                }
+            },
+
+            // Load main dashboard data
+            async loadDashboardData() {
+                try {
+                    console.log('Loading dashboard data...');
+
+                    const response = await fetch('/api/enhanced-dashboard/data');
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+                    const data = await response.json();
+                    console.log('Dashboard data received:', data);
+
+                    // Update statistics
+                    this.updateStatistics(data.statistics);
+
+                    // Update orders table
+                    this.updateOrdersTable(data.recentOrders);
+
+                    console.log('✅ Dashboard data loaded successfully');
+
+                } catch (error) {
+                    console.error('❌ Error loading dashboard data:', error);
+                }
+            },
+
+            // Update statistics display
+            updateStatistics(stats) {
+                if (!stats) return;
+
+                const elements = {
+                    totalMessages: document.getElementById('totalMessages'),
+                    successfulOrders: document.getElementById('successfulOrders'),
+                    failedOrders: document.getElementById('failedOrders'),
+                    totalOrders: document.getElementById('totalOrders')
+                };
+
+                if (elements.totalMessages) elements.totalMessages.textContent = stats.totalMessages || 0;
+                if (elements.successfulOrders) elements.successfulOrders.textContent = stats.successful || 0;
+                if (elements.failedOrders) elements.failedOrders.textContent = stats.failed || 0;
+                if (elements.totalOrders) elements.totalOrders.textContent = stats.total || 0;
+
+                console.log('✅ Statistics updated');
+            },
+
+            // Update orders table
+            updateOrdersTable(orders) {
+                const tbody = document.getElementById('ordersTableBody');
+                if (!tbody) return;
+
+                if (!orders || orders.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4">No recent orders</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = orders.slice(0, 10).map(order => `
+                    <tr>
+                        <td>${new Date(order.timestamp).toLocaleTimeString()}</td>
+                        <td>${order.clientName || 'N/A'}</td>
+                        <td>${order.symbol || 'N/A'}</td>
+                        <td>${order.transactionType || 'N/A'}</td>
+                        <td>${order.quantity || 'N/A'}</td>
+                        <td>${order.price || 'N/A'}</td>
+                        <td><span style="color: ${order.status === 'SUCCESS' ? 'green' : 'red'}">${order.status || 'N/A'}</span></td>
+                        <td><button class="btn btn-sm btn-outline-primary">View</button></td>
+                    </tr>
+                `).join('');
+
+                console.log('✅ Orders table updated');
+            },
+
+            // Load orders management data
+            async loadOrdersData() {
+                try {
+                    console.log('Loading orders data...');
+
+                    const response = await fetch('/api/enhanced-dashboard/orders');
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+                    const data = await response.json();
+                    console.log('Orders data received:', data);
+
+                    const tbody = document.getElementById('ordersManagementTableBody');
+                    if (tbody && data.orders) {
+                        tbody.innerHTML = data.orders.map(order => `
+                            <tr>
+                                <td>${new Date(order.timestamp).toLocaleTimeString()}</td>
+                                <td>${order.clientName || 'N/A'}</td>
+                                <td>${order.symbol || 'N/A'}</td>
+                                <td>${order.transactionType || 'N/A'}</td>
+                                <td>${order.quantity || 'N/A'}</td>
+                                <td>${order.price || 'N/A'}</td>
+                                <td><span style="color: ${order.status === 'SUCCESS' ? 'green' : 'red'}">${order.status || 'N/A'}</span></td>
+                                <td>${order.broker || 'N/A'}</td>
+                                <td>${order.orderId || 'N/A'}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary me-1">View</button>
+                                    <button class="btn btn-sm btn-outline-danger">Cancel</button>
+                                </td>
+                            </tr>
+                        `).join('');
+                    }
+
+                    console.log('✅ Orders management data loaded');
+
+                } catch (error) {
+                    console.error('❌ Error loading orders data:', error);
+                }
+            },
+
+            // Load messages data
+            async loadMessagesData() {
+                try {
+                    console.log('Loading messages data...');
+
+                    const [statsResponse, recentResponse] = await Promise.all([
+                        fetch('/api/enhanced-dashboard/messages/stats'),
+                        fetch('/api/enhanced-dashboard/messages/recent')
+                    ]);
+
+                    const stats = await statsResponse.json();
+                    const recent = await recentResponse.json();
+
+                    // Update message stats
+                    const totalMessagesCount = document.getElementById('totalMessagesCount');
+                    if (totalMessagesCount) totalMessagesCount.textContent = stats.total || 0;
+
+                    // Update recent messages table
+                    const tbody = document.getElementById('messagesTableBody');
+                    if (tbody && recent.messages) {
+                        tbody.innerHTML = recent.messages.map(msg => `
+                            <tr>
+                                <td>${new Date(msg.createdAt).toLocaleTimeString()}</td>
+                                <td>${msg.symbol || 'N/A'}</td>
+                                <td>${msg.action || 'N/A'}</td>
+                                <td>${msg.quantity || 'N/A'}</td>
+                                <td>${msg.price || 'N/A'}</td>
+                                <td><span class="badge bg-success">Processed</span></td>
+                            </tr>
+                        `).join('');
+                    }
+
+                    console.log('✅ Messages data loaded');
+
+                } catch (error) {
+                    console.error('❌ Error loading messages data:', error);
+                }
+            },
+
+            // Load clients data
+            async loadClientsData() {
+                try {
+                    console.log('Loading clients data...');
+
+                    const [statsResponse, recentResponse] = await Promise.all([
+                        fetch('/api/enhanced-dashboard/clients/stats'),
+                        fetch('/api/enhanced-dashboard/clients/recent')
+                    ]);
+
+                    const stats = await statsResponse.json();
+                    const recent = await recentResponse.json();
+
+                    console.log('Clients data received:', { stats, recent });
+
+                    // Update client list table
+                    const tbody = document.getElementById('clientsTableBody');
+                    if (tbody && recent.clients) {
+                        tbody.innerHTML = recent.clients.map(client => `
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="avatar-sm bg-primary rounded-circle me-2 d-flex align-items-center justify-content-center">
+                                            <i class="fas fa-user text-white"></i>
+                                        </div>
+                                        <div>
+                                            <div class="fw-bold">${client.name || client.clientName || 'N/A'}</div>
+                                            <small class="text-muted">${client.email || 'N/A'}</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>${client.userId || client.clientCode || 'N/A'}</td>
+                                <td><span class="badge bg-primary">${client.broker || 'ANGEL'}</span></td>
+                                <td>₹${client.capital || '2,000'}</td>
+                                <td><span class="badge bg-success">ACTIVE</span></td>
+                                <td>${new Date().toLocaleDateString()}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary me-1"><i class="fas fa-edit"></i></button>
+                                    <button class="btn btn-sm btn-outline-info me-1"><i class="fas fa-eye"></i></button>
+                                    <button class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+                                </td>
+                            </tr>
+                        `).join('');
+                    }
+
+                    console.log('✅ Clients data loaded');
+
+                } catch (error) {
+                    console.error('❌ Error loading clients data:', error);
+                }
+            },
+
+            // Load analytics data
+            async loadAnalyticsData() {
+                try {
+                    console.log('Loading analytics data...');
+
+                    const response = await fetch('/api/enhanced-dashboard/analytics/symbols');
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+                    const data = await response.json();
+                    console.log('Analytics data received:', data);
+
+                    console.log('✅ Analytics data loaded');
+
+                } catch (error) {
+                    console.error('❌ Error loading analytics data:', error);
+                }
+            },
+
+            // Load system status
+            async loadSystemStatus() {
+                try {
+                    console.log('Loading system status...');
+
+                    const response = await fetch('/api/enhanced-dashboard/system/status');
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+                    const data = await response.json();
+                    console.log('System status received:', data);
+
+                    console.log('✅ System status loaded');
+
+                } catch (error) {
+                    console.error('❌ Error loading system status:', error);
+                }
+            },
+
+            // Start auto refresh
+            startAutoRefresh() {
+                this.autoRefreshInterval = setInterval(() => {
+                    console.log('Auto-refreshing current section:', this.currentSection);
+                    this.loadSectionData(this.currentSection);
+                }, 30000);
+            }
+        };
+
+        // Global functions for button clicks
+        window.refreshData = () => window.enhancedDashboard.loadDashboardData();
+        window.refreshOrders = () => window.enhancedDashboard.loadOrdersData();
+        window.loadMessagesData = () => window.enhancedDashboard.loadMessagesData();
+        window.loadClientsData = () => window.enhancedDashboard.loadClientsData();
+        window.loadAnalyticsData = () => window.enhancedDashboard.loadAnalyticsData();
+        window.loadSystemStatus = () => window.enhancedDashboard.loadSystemStatus();
+
+        window.testMessage = async () => {
+            try {
+                const response = await fetch('/api/enhanced-dashboard/test-message', { method: 'POST' });
+                const result = await response.json();
+                alert('Test message sent: ' + result.message);
+            } catch (error) {
+                alert('Error sending test message: ' + error.message);
+            }
+        };
+
+        window.saveSettings = async () => {
+            try {
+                const response = await fetch('/api/enhanced-dashboard/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ test: 'settings' })
+                });
+                const result = await response.json();
+                alert('Settings saved: ' + result.message);
+            } catch (error) {
+                alert('Error saving settings: ' + error.message);
+            }
+        };
+
+        window.exportOrders = async () => {
+            try {
+                window.open('/api/enhanced-dashboard/orders/export', '_blank');
+            } catch (error) {
+                alert('Error exporting orders: ' + error.message);
+            }
+        };
+
+        // Initialize when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('DOM loaded - initializing enhanced dashboard');
+            setTimeout(() => {
+                window.enhancedDashboard.init();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

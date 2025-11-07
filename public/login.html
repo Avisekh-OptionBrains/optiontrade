@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SmartAPI Login</title>
+    <style>
+      /* General reset */
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: Arial, sans-serif;
+      }
+
+      /* Body styles */
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        background: linear-gradient(135deg, #1e3c72, #2a5298);
+        color: #333;
+      }
+
+      /* Login container styling */
+      .login-container {
+        background: #ffffff;
+        padding: 2rem;
+        border-radius: 8px;
+        width: 100%;
+        max-width: 400px;
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+        text-align: center;
+      }
+
+      /* Form and heading styling */
+      .login-container h1 {
+        margin-bottom: 1.5rem;
+        color: #2a5298;
+      }
+
+      /* Input field styling */
+      form label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: bold;
+        color: #333;
+      }
+
+      form input {
+        width: 100%;
+        padding: 0.75rem;
+        margin-bottom: 1rem;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 1rem;
+        transition: border-color 0.3s;
+      }
+
+      form input:focus {
+        border-color: #2a5298;
+        outline: none;
+      }
+
+      /* Button styling */
+      form button {
+        width: 100%;
+        padding: 0.75rem;
+        background-color: #2a5298;
+        color: #fff;
+        border: none;
+        border-radius: 4px;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: background-color 0.3s;
+      }
+
+      form button:hover {
+        background-color: #1e3c72;
+      }
+
+      /* Error and success messages */
+      .error-message,
+      .success-message {
+        font-size: 0.9rem;
+        margin-top: 1rem;
+        display: none;
+      }
+
+      .error-message {
+        color: #d9534f;
+      }
+
+      .success-message {
+        color: #5cb85c;
+      }
+
+      /* Show messages if they have text */
+      .error-message:empty,
+      .success-message:empty {
+        display: none;
+      }
+
+      /* Responsive design for smaller screens */
+      @media (max-width: 480px) {
+        .login-container {
+          padding: 1.5rem;
+          margin: 0 1rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="login-container">
+      <h1>SmartAPI Login</h1>
+      <form id="loginForm">
+        <label for="apiKey">API Key:</label>
+        <input type="text" id="apiKey" name="apiKey" required />
+        <label for="clientCode">Client Code:</label>
+        <input type="text" id="clientCode" name="clientCode" required />
+        <label for="password">Password:</label>
+        <input type="password" id="password" name="password" required />
+        <label for="totp">TOTP Code:</label>
+        <input type="text" id="totp" name="totp" required />
+        <label for="macAddress">MAC Address:</label>
+        <input type="text" id="macAddress" name="macAddress" required />
+        <button type="submit">Login</button>
+        <div class="error-message" id="errorMessage"></div>
+        <div class="success-message" id="successMessage"></div>
+      </form>
+    </div>
+
+    <script src="myscript.js"></script>
+  </body>
+</html>

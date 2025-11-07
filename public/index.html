@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+
+    <title>Dashboard - N Optionbrains</title>
+    <meta content="" name="description" />
+    <meta content="" name="keywords" />
+
+    <!-- Favicons -->
+    <link href="assets/img/favicon.svg" rel="icon" />
+    <link href="assets/img/apple-touch-icon.svg" rel="apple-touch-icon" />
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.gstatic.com" rel="preconnect" />
+    <link
+      href="https://fonts.googleapis.com/css?family=Open+Sans:300,300i,400,400i,600,600i,700,700i|Nunito:300,300i,400,400i,600,600i,700,700i|Poppins:300,300i,400,400i,500,500i,600,600i,700,700i"
+      rel="stylesheet"
+    />
+
+    <!-- Vendor CSS Files -->
+    <link
+      href="assets/vendor/bootstrap/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="assets/vendor/bootstrap-icons/bootstrap-icons.css"
+      rel="stylesheet"
+    />
+    <link href="assets/vendor/boxicons/css/boxicons.min.css" rel="stylesheet" />
+    <link href="assets/vendor/quill/quill.snow.css" rel="stylesheet" />
+    <link href="assets/vendor/quill/quill.bubble.css" rel="stylesheet" />
+    <link href="assets/vendor/remixicon/remixicon.css" rel="stylesheet" />
+    <link href="assets/vendor/simple-datatables/style.css" rel="stylesheet" />
+
+    <!-- Template Main CSS File -->
+    <link href="assets/css/style.css" rel="stylesheet" />
+  </head>
+
+  <body>
+    <!-- ======= Header ======= -->
+    <header id="header" class="header fixed-top d-flex align-items-center">
+      <div class="d-flex align-items-center justify-content-between">
+        <a href="index.html" class="logo d-flex align-items-center">
+          <img src="assets/img/logo.png" alt="" />
+          <span class="d-none d-lg-block"></span>
+        </a>
+        <i class="bi bi-list toggle-sidebar-btn"></i>
+      </div>
+      <!-- End Logo -->
+
+      <nav class="header-nav ms-auto">
+        <ul class="d-flex align-items-center">
+          <li class="nav-item d-block d-lg-none">
+            <a class="nav-link nav-icon search-bar-toggle" href="#">
+              <i class="bi bi-search"></i>
+            </a>
+          </li>
+          <!-- End Search Icon-->
+
+          <li class="nav-item dropdown pe-3">
+            <a class="nav-link nav-profile d-flex align-items-center pe-0" href="#" data-bs-toggle="dropdown">
+              <span class="d-none d-md-block dropdown-toggle ps-2" id="userShortName">Sign In</span>
+          </a>
+          <script>
+          async function fetchProfileData() {
+            // Attempt to retrieve the JWT token from cookies
+            const token = document.cookie.split('; ').find(row => row.startsWith('jwtToken='));
+            
+            // Check if the JWT token exists
+            if (!token) {
+                // If no token, set default values for the user profile display
+                document.getElementById("userShortName").textContent = "Sign In";
+                document.getElementById("userName").textContent = "Guest";
+                document.getElementById("clientCode").textContent = "N/A";
+                return; // Exit function if user is not logged in
+            }
+        
+            try {
+                const response = await fetch("/getProfile");
+                const data = await response.json(); // Parse the response as JSON
+        
+                // Check if the response data is valid and successful
+                if (data && data.status === true && data.data) {
+                    const { name, clientcode } = data.data; // Destructure to get name and client code
+        
+                    // Update the elements with the fetched name and client code
+                    document.getElementById("userName").textContent = name || "Unknown User"; // Fallback if name is empty
+                    document.getElementById("clientCode").textContent = clientcode || "N/A"; // Fallback if client code is empty
+        
+                    // Create initials for the user short name
+                    const initials = name.split(" ").map(n => n[0]).join(".") + ".";
+                    document.getElementById("userShortName").textContent = initials;
+        
+                } else {
+                    console.error("Failed to retrieve profile data:", data.message);
+                    // Show error handling in case of an unsuccessful response
+                    document.getElementById("userName").textContent = "Error Fetching Name";
+                    document.getElementById("clientCode").textContent = "Error Fetching Code";
+                }
+            } catch (error) {
+                console.error("Error fetching profile data:", error);
+                // Handle errors and provide user feedback
+                document.getElementById("userName").textContent = "Error Fetching Data";
+                document.getElementById("clientCode").textContent = "N/A";
+            }
+        }
+        
+
+        
+        // Call the fetchProfileData function when the window loads
+        window.addEventListener("load", fetchProfileData);
+</script>        
+            <ul class="dropdown-menu dropdown-menu-end dropdown-menu-arrow profile">
+              <li class="dropdown-header" id="profileHeader" style="">
+                <h6 id="userName">Kevin Anderson</h6>
+                <span id="clientCode">Web Designer</span>
+              </li>
+              <li>
+                <hr class="dropdown-divider" />
+              </li>
+          
+             
+          
+           
+      
+              <li>
+                <a class="dropdown-item d-flex align-items-center" href="#" onclick="signOut()">
+                    <i class="bi bi-box-arrow-right"></i>
+                    <span>Sign Out</span>
+                </a>
+            </li>
+            
+            <script>
+                function signOut() {
+                    // Clear all cookies
+                    const cookies = document.cookie.split("; ");
+                    for (let cookie of cookies) {
+                        const eqPos = cookie.indexOf("=");
+                        const name = eqPos > -1 ? cookie.substr(0, eqPos) : cookie; // Get cookie name
+                        // Set cookie to expire in the past for all possible paths and domains
+                        document.cookie = name + "=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=" + window.location.hostname; 
+                    }
+            
+                    // Optionally redirect to a sign-in page or refresh the current page
+                    window.location.href = "login.html"; // Adjust the URL as needed
+                }
+            </script>
+            
+              
+          
+              <li>
+                <a class="dropdown-item d-flex align-items-center" href="login.html">
+                  <i class="bi bi-box-arrow-in-right"></i>
+                  <span>Sign In</span> 
+                </a>
+              </li>
+            </ul>
+          </li>
+          
+          
+          
+            <!-- End Profile Dropdown Items -->
+          </li>
+          <!-- End Profile Nav -->
+        </ul>
+      </nav>
+      <!-- End Icons Navigation -->
+    </header>
+    <!-- End Header -->
+
+    <!-- ======= Sidebar ======= -->
+    <aside id="sidebar" class="sidebar">
+      <ul class="sidebar-nav" id="sidebar-nav">
+        <li class="nav-item">
+          <a class="nav-link" href="index.html">
+            <i class="bi bi-grid"></i>
+            <span>Dashboard</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link collapsed" >
+            <i class="bi bi-person"></i>
+            <span>Profile</span>
+          </a>
+        </li>
+
+        <li class="nav-item">
+          <a class="nav-link collapsed" href="pages-register.html">
+            <i class="bi bi-card-list"></i>
+            <span>Register</span>
+          </a>
+        </li>
+        <!-- End Register Page Nav -->
+
+        <li class="nav-item">
+          <a class="nav-link collapsed" href="pages-login.html">
+            <i class="bi bi-box-arrow-in-right"></i>
+            <span>Login</span>
+          </a>
+        </li>
+   
+      </ul>
+    </aside>
+    <!-- End Sidebar-->
+
+    <main id="main" class="main">
+      <div class="pagetitle">
+        <h1>Dashboard</h1>
+      </div>
+    
+      <section class="section dashboard">
+        <!-- Left side columns -->
+        <div class="row">
+          <!-- Available Cash Card -->
+          <div class="col-xxl-4 col-md-6">
+            <div class="card info-card sales-card">
+              <div class="card-body">
+                <h5 class="card-title">Available Cash / Margin</h5>
+                <div class="d-flex align-items-center">
+                  <div class="card-icon rounded-circle d-flex align-items-center justify-content-center">
+                    <i class="bi bi-currency-rupee"></i>
+                  </div>
+                  <div class="ps-3">
+                    <h6 id="available-cash">Loading...</h6>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+    
+          <!-- Realized P/L Card -->
+          <div class="col-xxl-4 col-md-6">
+            <div class="card info-card revenue-card">
+              <div class="card-body">
+                <h5 class="card-title">Realized - Profit / Loss</h5>
+                <div class="d-flex align-items-center">
+                  <div class="card-icon rounded-circle d-flex align-items-center justify-content-center">
+                    <i class="bi bi-currency-rupee"></i>
+                  </div>
+                  <div class="ps-3">
+                    <h6 id="m2m-realized">Loading...</h6>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+    
+          <!-- Unrealized P/L Card -->
+          <div class="col-xxl-4 col-xl-12">
+            <div class="card info-card customers-card">
+              <div class="card-body">
+                <h5 class="card-title">UnRealized - Profit / Loss</h5>
+                <div class="d-flex align-items-center">
+                  <div class="card-icon rounded-circle d-flex align-items-center justify-content-center">
+                    <i class="bi bi-currency-rupee"></i>
+                  </div>
+                  <div class="ps-3">
+                    <h6 id="m2m-unrealized">Loading...</h6>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+    
+        <!-- Table for displaying orders -->
+        <div class="card-body pb-0">
+          <h5 class="card-title">Order Book</h5>
+    
+          <!-- Filters for the table -->
+          <div class="d-flex justify-content-between mb-3">
+            <div class="input-group w-auto">
+              <input type="text" class="form-control" id="search-stock" placeholder="Search Stock">
+              <button class="btn btn-outline-secondary" id="filter-stock-btn" type="button">
+                <i class="bi bi-search"></i>
+              </button>
+            </div>
+            <div>
+              <select class="form-select" id="filter-order-type">
+                <option value="">Filter by Order Type</option>
+                <option value="Buy">Buy</option>
+                <option value="Sell">Sell</option>
+              </select>
+            </div>
+          </div>
+    
+          <table class="table table-bordered" id="order-book-table">
+            <thead>
+              <tr>
+                <th scope="col">Stock Name <i class="fa fa-sort"></i></th>
+                <th scope="col">Action / Order Type <i class="fa fa-sort"></i></th>
+                <th scope="col">Qty <i class="fa fa-sort"></i></th>
+                <th scope="col">Placed Price <i class="fa fa-sort"></i></th>
+                <th scope="col">Exec Price <i class="fa fa-sort"></i></th>
+                <th scope="col">Status <i class="fa fa-sort"></i></th>
+                <th scope="col">Details</th> <!-- Column for three dots -->
+              </tr>
+            </thead>
+            <tbody id="order-book-tbody">
+              <!-- Data rows will be inserted here -->
+            </tbody>
+          </table>
+    
+          <!-- Modal for Order Details -->
+          <div class="modal fade" id="orderDetailsModal" tabindex="-1" aria-labelledby="orderDetailsModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h5 class="modal-title" id="orderDetailsModalLabel">Order Details</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                  <p><strong>Order Placed on:</strong> <span id="order-placed-date"></span></p>
+                  <p><strong>Product Type:</strong> <span id="product-type"></span></p>
+                  <p><strong>Action:</strong> <span id="action"></span></p>
+                  <p><strong>Order Type:</strong> <span id="order-type"></span></p>
+                  <p><strong>Order ID:</strong> <span id="order-id"></span></p>
+                  <p><strong>Status Reason:</strong> <span id="status-reason"></span></p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+    
+        <!-- Positions Section -->
+        <div class="col-12">
+          <div class="card top-selling overflow-auto">
+            <div class="card-body pb-0">
+              <h5 class="card-title">Positions</h5>
+    
+              <table class="table table-borderless">
+                <thead>
+                  <tr>
+                    <th scope="col">Stock Name</th>
+                    <th scope="col">Action/Order Type</th>
+                    <th scope="col">Qty</th>
+                    <th scope="col">Atp</th>
+                    <th scope="col">Gain / Loss</th>
+                  </tr>
+                </thead>
+                <tbody id="positions-tbody">
+                  <!-- Data rows will be inserted here -->
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td colspan="4" style="text-align:right;"><strong>Total Gain / Loss:</strong></td>
+                    <td id="total-gain-loss" style="font-weight: bold;"></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- End Left side columns -->
+    </section>
+    
+    <script>
+      // Function to fetch and display data
+      async function fetchData() {
+        try {
+          const response = await fetch('/getRMS');
+          const data = await response.json();
+    
+          // Parse data and display in HTML
+          document.getElementById('available-cash').innerText = data.data.availablecash || "N/A";
+          document.getElementById('m2m-realized').innerText = data.data.m2mrealized || "N/A";
+          document.getElementById('m2m-unrealized').innerText = data.data.m2munrealized || "N/A";
+        } catch (error) {
+          console.error("Error fetching data:", error);
+          document.getElementById('available-cash').innerText = "Error";
+          document.getElementById('m2m-realized').innerText = "Error";
+          document.getElementById('m2m-unrealized').innerText = "Error";
+        }
+      }
+    
+      // Fetch data when the page loads
+      window.onload = fetchData;
+    
+      // Handle filtering order book data
+      document.getElementById('filter-stock-btn').addEventListener('click', () => {
+        const searchTerm = document.getElementById('search-stock').value.toLowerCase();
+        const filterType = document.getElementById('filter-order-type').value;
+    
+        const rows = document.querySelectorAll('#order-book-tbody tr');
+        rows.forEach(row => {
+          const stockName = row.querySelector('td:nth-child(1)').textContent.toLowerCase();
+          const orderType = row.querySelector('td:nth-child(2)').textContent.toLowerCase();
+    
+          let isMatch = stockName.includes(searchTerm);
+          if (filterType && !orderType.includes(filterType.toLowerCase())) {
+            isMatch = false;
+          }
+    
+          row.style.display = isMatch ? '' : 'none';
+        });
+      });
+    </script>
+    </main>
+    
+
+
+
+    <!-- End #main -->
+
+    <!-- ======= Footer ======= -->
+    <footer id="footer" class="footer">
+      <div class="copyright">
+        &copy; Copyright <strong> optionbrains</strong>. All Rights Reserved
+      </div>
+    </footer>
+    <!-- End Footer -->
+
+    <a
+      href="#"
+      class="back-to-top d-flex align-items-center justify-content-center"
+      ><i class="bi bi-arrow-up-short"></i
+    ></a>
+
+
+
+
+
+    <script src="assets/js/main.js"></script>
+    
+<!-- HTML Part for Filters -->
+
+
+<script>
+  // Fetch position data and populate table
+  async function fetchPositions() {
+      try {
+          const response = await fetch('/getPosition'); // Make API call to backend
+
+          if (!response.ok) {
+              alert("Failed to load positions data");
+              return;
+          }
+
+          const data = await response.json(); // Parse the response as JSON
+
+          if (data && data.status) {
+              const positions = data.data; // Get position data
+              const tableBody = document.getElementById("positions-tbody");
+              let totalGainLoss = 0; // Initialize total gain/loss accumulator
+
+              if (!tableBody) {
+                  console.error("Error: Element with id 'positions-tbody' not found in the DOM");
+                  return;
+              }
+
+              // Clear existing rows
+              tableBody.innerHTML = '';
+
+              // Populate table with position data and calculate total gain/loss
+              positions.forEach(position => {
+                  const row = document.createElement("tr");
+
+                  // Stock Name (tradingsymbol)
+                  const stockNameCell = document.createElement("td");
+                  stockNameCell.textContent = position.tradingsymbol || '-';
+                  row.appendChild(stockNameCell);
+
+                  // Action/Order Type (netqty and producttype)
+                  const actionOrderTypeCell = document.createElement("td");
+                  actionOrderTypeCell.textContent = `${position.netqty > 0 ? 'Buy' : 'Sell'} / ${position.producttype || '-'}`;
+                  row.appendChild(actionOrderTypeCell);
+
+                  // Qty (netqty)
+                  const qtyCell = document.createElement("td");
+                  qtyCell.textContent = position.netqty || '-';
+                  row.appendChild(qtyCell);
+
+                  // ATP (avgnetprice)
+                  const atpCell = document.createElement("td");
+                  atpCell.textContent = position.avgnetprice || '-';
+                  row.appendChild(atpCell);
+
+                  // Gain/Loss (calculated using netvalue)
+                  const gainLossCell = document.createElement("td");
+                  const gainLossValue = parseFloat(position.netvalue || 0);
+                  gainLossCell.textContent = gainLossValue.toFixed(2);
+                  gainLossCell.style.color = gainLossValue >= 0 ? 'green' : 'red';
+                  row.appendChild(gainLossCell);
+
+                  // Append the row to the table body
+                  tableBody.appendChild(row);
+
+                  // Add to total gain/loss
+                  totalGainLoss += gainLossValue;
+              });
+
+              // Update the total gain/loss display
+              const totalGainLossCell = document.getElementById("total-gain-loss");
+              totalGainLossCell.textContent = totalGainLoss.toFixed(2);
+              totalGainLossCell.style.color = totalGainLoss >= 0 ? 'green' : 'red';
+          } else {
+              alert('Failed to load positions data');
+          }
+      } catch (error) {
+          console.error("Error fetching positions:", error);
+          alert('An error occurred while fetching the positions data');
+      }
+  }
+
+  // Call the fetch function on page load
+  fetchPositions();
+</script>
+<!-- JavaScript Part -->
+<script>
+  let orders = []; // Store orders globally
+
+  // Fetch order book data and populate table
+  async function fetchOrderBook() {
+      try {
+          const response = await fetch('/getOrderBook'); // Make API call to backend
+
+          if (!response.ok) {
+              alert("Failed to load order book data");
+              return;
+          }
+
+          const data = await response.json(); // Parse the response as JSON
+
+          if (data && data.status) {
+              orders = data.data; // Store orders
+
+              const tableBody = document.getElementById("order-book-tbody");
+
+              if (!tableBody) {
+                  console.error("Error: Element with id 'order-book-tbody' not found in the DOM");
+                  return;
+              }
+
+              // Clear existing rows
+              tableBody.innerHTML = '';
+
+              // Populate table with orders
+              orders.forEach(order => {
+                  const row = document.createElement("tr");
+
+                  // Stock Name (tradingsymbol)
+                  const stockNameCell = document.createElement("th");
+                  stockNameCell.setAttribute("scope", "row");
+                  stockNameCell.innerHTML = `<a href="#">${order.tradingsymbol || '-'}</a>`;
+                  row.appendChild(stockNameCell);
+
+                  // Action / Order Type (transactiontype, ordertype)
+                  const actionOrderTypeCell = document.createElement("td");
+                  actionOrderTypeCell.textContent = `${order.transactiontype || '-'} / ${order.ordertype || '-'}`;
+                  row.appendChild(actionOrderTypeCell);
+
+                  // Qty (quantity)
+                  const qtyCell = document.createElement("td");
+                  qtyCell.textContent = order.quantity || '-';
+                  row.appendChild(qtyCell);
+
+                  // Placed Price (price)
+                  const placedPriceCell = document.createElement("td");
+                  placedPriceCell.textContent = order.price || '-';
+                  row.appendChild(placedPriceCell);
+
+                  // Exec Price (averageprice)
+                  const execPriceCell = document.createElement("td");
+                  execPriceCell.textContent = order.averageprice || '-';
+                  row.appendChild(execPriceCell);
+
+                  // Status (orderstatus and reason)
+                  const statusCell = document.createElement("td");
+                  const statusBadge = document.createElement("span");
+                  statusBadge.classList.add("badge");
+
+                  // Determine the color and reason
+                  let statusReason = order.orderstatus || "Unknown";
+                  if (order.orderstatus === 'rejected' || order.orderstatus === 'canceled') {
+                      statusBadge.classList.add("bg-danger");
+                  } else if (order.orderstatus === 'complete') {
+                      statusBadge.classList.add("bg-success");
+                  } else {
+                      statusBadge.classList.add("bg-warning");
+                  }
+                  statusBadge.textContent = statusReason;
+                  statusCell.appendChild(statusBadge);
+                  row.appendChild(statusCell);
+
+                  // Details Column (Three Dots for Modal)
+                  const detailsCell = document.createElement("td");
+                  const detailsButton = document.createElement("button");
+                  detailsButton.textContent = "...";
+                  detailsButton.classList.add("btn", "btn-link");
+                  detailsButton.setAttribute("data-bs-toggle", "modal");
+                  detailsButton.setAttribute("data-bs-target", "#orderDetailsModal");
+                  detailsButton.addEventListener("click", function () {
+                      // Show order details in modal
+                      document.getElementById("order-placed-date").textContent = order.updatetime || '-';
+                      document.getElementById("product-type").textContent = order.producttype || '-';
+                      document.getElementById("action").textContent = order.transactiontype || '-';
+                      document.getElementById("order-type").textContent = order.ordertype || '-';
+                      document.getElementById("order-id").textContent = order.orderid || '-';
+                    
+                      document.getElementById("status-reason").textContent = order.text || '-';
+                  });
+                  detailsCell.appendChild(detailsButton);
+                  row.appendChild(detailsCell);
+
+                  // Append the row to the table body
+                  tableBody.appendChild(row);
+              });
+
+              // Enable filtering after the table is populated
+              initializeDataTable();
+              enableFilters();
+
+          } else {
+              alert('Failed to load order book data');
+          }
+      } catch (error) {
+          console.error("Error fetching order book:", error);
+          alert('An error occurred while fetching the order book data');
+      }
+  }
+
+  // Initialize DataTable with sorting, pagination, etc.
+  function initializeDataTable() {
+      $('#order-book-table').DataTable({
+          "pagingType": "simple_numbers", // Pagination type
+          "lengthMenu": [10, 25, 50, 100], // Entries per page options
+          "order": [], // Disable initial sorting
+          "searching": true, // Enable searching/filtering
+          "autoWidth": true // Auto column width
+      });
+  }
+
+  // Enable filters and autocomplete
+  function enableFilters() {
+      const stockNames = [...new Set(orders.map(order => order.tradingsymbol))];
+      const orderTypes = [...new Set(orders.map(order => order.ordertype))];
+      const statuses = [...new Set(orders.map(order => order.orderstatus))];
+
+      // Autocomplete for Stock Name
+      $("#filter-symbol").autocomplete({
+          source: stockNames,
+          minLength: 2 // Minimum characters to start filtering
+      });
+
+      // Autocomplete for Order Type
+      $("#filter-order-type").autocomplete({
+          source: orderTypes,
+          minLength: 2
+      });
+
+      // Autocomplete for Status
+      $("#filter-status").autocomplete({
+          source: statuses,
+          minLength: 2
+      });
+  }
+
+  // Call the fetch function on page load
+  fetchOrderBook();
+</script>
+<!-- Include jQuery UI for autocomplete -->
+<script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
+<link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+<style>
+  .modal-content {
+      background-color: #f9f9f9;
+      border-radius: 8px;
+  }
+
+  .modal-header {
+      background-color: #343a40;
+      color: white;
+  }
+
+  .badge {
+      font-size: 14px;
+      padding: 6px 12px;
+      border-radius: 15px;
+  }
+
+  .bg-danger {
+      background-color: #dc3545 !important;
+      color: white;
+  }
+
+  .bg-success {
+      background-color: #28a745 !important;
+      color: white;
+  }
+
+  .bg-warning {
+      background-color: #ffc107 !important;
+      color: black;
+  }
+
+  .btn-link {
+      color: #007bff;
+      cursor: pointer;
+  }
+
+  .btn-link:hover {
+      text-decoration: underline;
+  }
+
+  .table td, .table th {
+      vertical-align: middle;
+  }
+
+  /* Style for the modal */
+  .modal-dialog {
+      max-width: 600px;
+  }
+
+  .modal-body p {
+      font-size: 14px;
+  }
+</style>
+
+    
+
+    <!-- Vendor JS Files -->
+    <script src="assets/vendor/apexcharts/apexcharts.min.js"></script>
+    <script src="assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+    <script src="assets/vendor/chart.js/chart.umd.js"></script>
+    <script src="assets/vendor/echarts/echarts.min.js"></script>
+    <script src="assets/vendor/quill/quill.min.js"></script>
+    <!-- <script src="assets/vendor/simple-datatables/simple-datatables.js"></script> -->
+    <script src="assets/vendor/tinymce/tinymce.min.js"></script>
+    <script src="assets/vendor/php-email-form/validate.js"></script>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+<script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css">
+<link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+
+
+    <!-- Template Main JS File -->
+    
+
+
+
+  </body>
+</html>

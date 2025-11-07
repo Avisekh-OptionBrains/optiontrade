@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Add Client Data</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #f4f7fc;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+      }
+
+      h1 {
+        color: #333;
+        margin-bottom: 20px;
+      }
+
+      .container {
+        background-color: #fff;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        width: 100%;
+        max-width: 400px;
+      }
+
+      label {
+        display: block;
+        font-size: 14px;
+        margin-bottom: 5px;
+        color: #555;
+      }
+
+      input[type="text"],
+      input[type="number"] {
+        width: 100%;
+        padding: 10px;
+        margin-bottom: 15px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        font-size: 14px;
+        color: #555;
+      }
+
+      button {
+        width: 100%;
+        padding: 10px;
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        font-size: 16px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+      }
+
+      button:hover {
+        background-color: #45a049;
+      }
+
+      .alert {
+        color: #d9534f;
+        margin-top: 15px;
+      }
+
+      .success {
+        color: #5bc0de;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Add Client Data</h1>
+      <form id="clientForm">
+        <label for="clientId">Client ID:</label>
+        <input type="text" id="clientId" name="clientId" required /><br />
+
+        <label for="jwtToken">JWT Token:</label>
+        <input type="text" id="jwtToken" name="jwtToken" required /><br />
+
+        <label for="apiKey">API Key:</label>
+        <input type="text" id="apiKey" name="apiKey" required /><br />
+
+        <label for="capital">Capital:</label>
+        <input type="number" id="capital" name="capital" required /><br />
+
+        <button type="submit">Submit</button>
+      </form>
+      <p id="statusMessage" class="alert"></p>
+    </div>
+
+    <script>
+      document
+        .getElementById("clientForm")
+        .addEventListener("submit", async function (e) {
+          e.preventDefault();
+
+          const clientData = {
+            clientId: document.getElementById("clientId").value,
+            jwtToken: document.getElementById("jwtToken").value,
+            apiKey: document.getElementById("apiKey").value,
+            capital: document.getElementById("capital").value,
+          };
+
+          try {
+            const response = await fetch("/add-client", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(clientData),
+            });
+
+            const data = await response.json();
+            const statusMessage = document.getElementById("statusMessage");
+
+            if (response.ok) {
+              statusMessage.textContent = "Client data added successfully.";
+              statusMessage.classList.add("success");
+              statusMessage.classList.remove("alert");
+              // Clear the form fields
+              document.getElementById("clientForm").reset();
+            } else {
+              statusMessage.textContent = "Error: " + data.error;
+              statusMessage.classList.add("alert");
+              statusMessage.classList.remove("success");
+            }
+          } catch (error) {
+            console.error("Error:", error);
+            const statusMessage = document.getElementById("statusMessage");
+            statusMessage.textContent = "Failed to add client data.";
+            statusMessage.classList.add("alert");
+            statusMessage.classList.remove("success");
+          }
+        });
+    </script>
+  </body>
+</html>

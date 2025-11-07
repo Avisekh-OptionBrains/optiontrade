@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Documentation - Epicrise Trading Platform</title>
+    
+    <!-- CSS Dependencies -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary-color: #6366f1;
+            --secondary-color: #8b5cf6;
+            --success-color: #10b981;
+            --danger-color: #ef4444;
+            --warning-color: #f59e0b;
+            --info-color: #06b6d4;
+            --dark-color: #1f2937;
+            --light-color: #f9fafb;
+            --border-radius: 12px;
+            --box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--light-color);
+            color: var(--dark-color);
+        }
+
+        .sidebar {
+            background: white;
+            box-shadow: var(--box-shadow);
+            min-height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 280px;
+            overflow-y: auto;
+            z-index: 1000;
+        }
+
+        .sidebar .nav-link {
+            color: var(--dark-color);
+            padding: 0.75rem 1.5rem;
+            border-radius: 0;
+            transition: all 0.3s ease;
+            border-left: 3px solid transparent;
+        }
+
+        .sidebar .nav-link:hover,
+        .sidebar .nav-link.active {
+            background: #f8fafc;
+            color: var(--primary-color);
+            border-left-color: var(--primary-color);
+        }
+
+        .main-content {
+            margin-left: 280px;
+            padding: 2rem;
+        }
+
+        .endpoint-card {
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            margin-bottom: 2rem;
+            overflow: hidden;
+        }
+
+        .endpoint-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .endpoint-body {
+            padding: 1.5rem;
+        }
+
+        .method-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-right: 1rem;
+        }
+
+        .method-get { background: #dcfce7; color: #166534; }
+        .method-post { background: #dbeafe; color: #1e40af; }
+        .method-put { background: #fef3c7; color: #92400e; }
+        .method-delete { background: #fef2f2; color: #991b1b; }
+        .method-patch { background: #f3e8ff; color: #7c3aed; }
+
+        .code-block {
+            background: #1a1a1a;
+            border-radius: var(--border-radius);
+            padding: 1rem;
+            margin: 1rem 0;
+            overflow-x: auto;
+        }
+
+        .response-example {
+            background: #f8fafc;
+            border: 1px solid #e5e7eb;
+            border-radius: var(--border-radius);
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+
+        .parameter-table {
+            margin: 1rem 0;
+        }
+
+        .parameter-table th {
+            background: var(--light-color);
+            font-weight: 600;
+            font-size: 0.875rem;
+        }
+
+        .try-it-btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: var(--border-radius);
+            padding: 0.5rem 1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .try-it-btn:hover {
+            background: var(--secondary-color);
+            transform: translateY(-1px);
+        }
+
+        .header {
+            background: white;
+            box-shadow: var(--box-shadow);
+            padding: 1rem 1.5rem;
+            margin-bottom: 0;
+            position: sticky;
+            top: 0;
+            z-index: 999;
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+            }
+            
+            .sidebar.show {
+                transform: translateX(0);
+            }
+            
+            .main-content {
+                margin-left: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="header">
+            <h4 class="mb-0 text-primary">
+                <i class="fas fa-code me-2"></i>
+                API Documentation
+            </h4>
+        </div>
+        
+        <nav class="nav flex-column">
+            <a class="nav-link active" href="#overview">
+                <i class="fas fa-info-circle me-2"></i>Overview
+            </a>
+            <a class="nav-link" href="#authentication">
+                <i class="fas fa-key me-2"></i>Authentication
+            </a>
+            <a class="nav-link" href="#trading-endpoints">
+                <i class="fas fa-chart-line me-2"></i>Trading Endpoints
+            </a>
+            <a class="nav-link" href="#user-management">
+                <i class="fas fa-users me-2"></i>User Management
+            </a>
+            <a class="nav-link" href="#dashboard-api">
+                <i class="fas fa-tachometer-alt me-2"></i>Dashboard API
+            </a>
+            <a class="nav-link" href="#websocket">
+                <i class="fas fa-plug me-2"></i>WebSocket
+            </a>
+            <a class="nav-link" href="#error-codes">
+                <i class="fas fa-exclamation-triangle me-2"></i>Error Codes
+            </a>
+        </nav>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="fw-bold">Epicrise Trading Platform API</h1>
+                <p class="text-muted">Complete API reference for the Epicrise trading system</p>
+            </div>
+            <div>
+                <a href="enhanced-dashboard.html" class="btn btn-outline-primary">
+                    <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+                </a>
+            </div>
+        </div>
+
+        <!-- Overview Section -->
+        <section id="overview" class="endpoint-card">
+            <div class="endpoint-header">
+                <h2><i class="fas fa-info-circle me-2 text-primary"></i>Overview</h2>
+            </div>
+            <div class="endpoint-body">
+                <p>The Epicrise Trading Platform API provides programmatic access to trading operations, user management, and real-time market data.</p>
+                
+                <h4>Base URL</h4>
+                <div class="code-block">
+                    <code>http://localhost:3000/api</code>
+                </div>
+
+                <h4>Features</h4>
+                <ul>
+                    <li>Real-time order placement and management</li>
+                    <li>Multi-broker support (Angel One, Motilal Oswal)</li>
+                    <li>WebSocket real-time updates</li>
+                    <li>Comprehensive user management</li>
+                    <li>Advanced analytics and reporting</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- Trading Endpoints Section -->
+        <section id="trading-endpoints" class="endpoint-card">
+            <div class="endpoint-header">
+                <h2><i class="fas fa-chart-line me-2 text-primary"></i>Trading Endpoints</h2>
+            </div>
+            <div class="endpoint-body">
+                <!-- Place Order via Telegram -->
+                <div class="mb-4">
+                    <div class="d-flex align-items-center mb-3">
+                        <span class="method-badge method-post">POST</span>
+                        <code>/Epicrise/Telegram</code>
+                    </div>
+                    <p>Process trading signals from Telegram messages</p>
+                    
+                    <h5>Request Body</h5>
+                    <div class="code-block">
+<pre><code class="language-json">{
+  "message": "ER Buy SBIN at 855.05 with Stop Loss at 850.00"
+}</code></pre>
+                    </div>
+
+                    <h5>Response</h5>
+                    <div class="response-example">
+<pre><code class="language-json">{
+  "message": "Message processed and orders placed successfully",
+  "parsedData": {
+    "symbol": "SBIN",
+    "transactionType": "Buy",
+    "price": 855.05,
+    "stopLoss": 850.00
+  }
+}</code></pre>
+                    </div>
+                    
+                    <button class="try-it-btn" onclick="tryEndpoint('/Epicrise/Telegram', 'POST')">
+                        <i class="fas fa-play me-2"></i>Try it out
+                    </button>
+                </div>
+
+                <!-- Angel One Orders -->
+                <div class="mb-4">
+                    <div class="d-flex align-items-center mb-3">
+                        <span class="method-badge method-post">POST</span>
+                        <code>/Epicrise/AngelOne</code>
+                    </div>
+                    <p>Place orders directly to Angel One broker</p>
+                    
+                    <h5>Request Body</h5>
+                    <div class="code-block">
+<pre><code class="language-json">{
+  "messageText": "ER Buy SBIN at 855.05 with Stop Loss at 850.00"
+}</code></pre>
+                    </div>
+                </div>
+
+                <!-- Motilal Oswal Orders -->
+                <div class="mb-4">
+                    <div class="d-flex align-items-center mb-3">
+                        <span class="method-badge method-post">POST</span>
+                        <code>/Epicrise/MotilalOswal</code>
+                    </div>
+                    <p>Place orders directly to Motilal Oswal broker</p>
+                    
+                    <h5>Request Body</h5>
+                    <div class="code-block">
+<pre><code class="language-json">{
+  "messageText": "ER Buy SBIN at 855.05 with Stop Loss at 850.00"
+}</code></pre>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- User Management Section -->
+        <section id="user-management" class="endpoint-card">
+            <div class="endpoint-header">
+                <h2><i class="fas fa-users me-2 text-primary"></i>User Management</h2>
+            </div>
+            <div class="endpoint-body">
+                <!-- Get Users -->
+                <div class="mb-4">
+                    <div class="d-flex align-items-center mb-3">
+                        <span class="method-badge method-get">GET</span>
+                        <code>/api/users/angel</code>
+                    </div>
+                    <p>Get all Angel One users</p>
+                    
+                    <h5>Response</h5>
+                    <div class="response-example">
+<pre><code class="language-json">[
+  {
+    "_id": "user_id",
+    "clientName": "John Doe",
+    "userId": "J12345",
+    "email": "john@example.com",
+    "capital": 100000,
+    "state": "live"
+  }
+]</code></pre>
+                    </div>
+                </div>
+
+                <!-- Get Motilal Users -->
+                <div class="mb-4">
+                    <div class="d-flex align-items-center mb-3">
+                        <span class="method-badge method-get">GET</span>
+                        <code>/api/users/motilal</code>
+                    </div>
+                    <p>Get all Motilal Oswal users</p>
+                </div>
+
+                <!-- User Statistics -->
+                <div class="mb-4">
+                    <div class="d-flex align-items-center mb-3">
+                        <span class="method-badge method-get">GET</span>
+                        <code>/api/users/stats/summary</code>
+                    </div>
+                    <p>Get user statistics and summary</p>
+                    
+                    <h5>Response</h5>
+                    <div class="response-example">
+<pre><code class="language-json">{
+  "totalUsers": 25,
+  "angelUsers": 15,
+  "motilalUsers": 10,
+  "activeUsers": 20,
+  "capitalStats": {
+    "angel": {
+      "totalCapital": 2500000,
+      "avgCapital": 166666.67
+    }
+  }
+}</code></pre>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Dashboard API Section -->
+        <section id="dashboard-api" class="endpoint-card">
+            <div class="endpoint-header">
+                <h2><i class="fas fa-tachometer-alt me-2 text-primary"></i>Dashboard API</h2>
+            </div>
+            <div class="endpoint-body">
+                <!-- Enhanced Dashboard Data -->
+                <div class="mb-4">
+                    <div class="d-flex align-items-center mb-3">
+                        <span class="method-badge method-get">GET</span>
+                        <code>/api/enhanced-dashboard/data</code>
+                    </div>
+                    <p>Get comprehensive dashboard data including statistics, recent orders, and charts data</p>
+                    
+                    <h5>Response</h5>
+                    <div class="response-example">
+<pre><code class="language-json">{
+  "statistics": {
+    "total": 150,
+    "successful": 142,
+    "failed": 8,
+    "successRate": 94.67,
+    "totalMessages": 200,
+    "totalClients": 25
+  },
+  "recentOrders": [...],
+  "hourlyData": [...],
+  "topSymbols": [...]
+}</code></pre>
+                    </div>
+                </div>
+
+                <!-- Real-time Stats -->
+                <div class="mb-4">
+                    <div class="d-flex align-items-center mb-3">
+                        <span class="method-badge method-get">GET</span>
+                        <code>/api/enhanced-dashboard/stats/realtime</code>
+                    </div>
+                    <p>Get real-time statistics for the last 5 minutes</p>
+                </div>
+
+                <!-- Export Data -->
+                <div class="mb-4">
+                    <div class="d-flex align-items-center mb-3">
+                        <span class="method-badge method-get">GET</span>
+                        <code>/api/enhanced-dashboard/export/{format}</code>
+                    </div>
+                    <p>Export data in JSON or CSV format</p>
+                    
+                    <h5>Parameters</h5>
+                    <table class="table parameter-table">
+                        <thead>
+                            <tr>
+                                <th>Parameter</th>
+                                <th>Type</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>format</td>
+                                <td>string</td>
+                                <td>Export format: 'json' or 'csv'</td>
+                            </tr>
+                            <tr>
+                                <td>startDate</td>
+                                <td>string</td>
+                                <td>Start date for data export (optional)</td>
+                            </tr>
+                            <tr>
+                                <td>endDate</td>
+                                <td>string</td>
+                                <td>End date for data export (optional)</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- WebSocket Section -->
+        <section id="websocket" class="endpoint-card">
+            <div class="endpoint-header">
+                <h2><i class="fas fa-plug me-2 text-primary"></i>WebSocket</h2>
+            </div>
+            <div class="endpoint-body">
+                <p>Real-time updates via WebSocket connection</p>
+                
+                <h4>Connection URL</h4>
+                <div class="code-block">
+                    <code>ws://localhost:3000/ws</code>
+                </div>
+
+                <h4>Message Types</h4>
+                <ul>
+                    <li><strong>new_order</strong> - New order placed</li>
+                    <li><strong>order_update</strong> - Order status updated</li>
+                    <li><strong>new_message</strong> - New trading message received</li>
+                    <li><strong>system_alert</strong> - System alerts and notifications</li>
+                </ul>
+
+                <h4>Example Message</h4>
+                <div class="code-block">
+<pre><code class="language-json">{
+  "type": "new_order",
+  "data": {
+    "clientName": "John Doe",
+    "broker": "ANGEL",
+    "symbol": "SBIN",
+    "transactionType": "BUY",
+    "price": 855.05,
+    "quantity": 100,
+    "status": "SUCCESS"
+  },
+  "timestamp": "2024-01-15T10:30:00.000Z"
+}</code></pre>
+                </div>
+            </div>
+        </section>
+
+        <!-- Error Codes Section -->
+        <section id="error-codes" class="endpoint-card">
+            <div class="endpoint-header">
+                <h2><i class="fas fa-exclamation-triangle me-2 text-primary"></i>Error Codes</h2>
+            </div>
+            <div class="endpoint-body">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Code</th>
+                            <th>Description</th>
+                            <th>Solution</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>400</td>
+                            <td>Bad Request - Invalid message format</td>
+                            <td>Check message format: 'ER Buy/Sell SYMBOL at PRICE with Stop Loss at STOPLOSS'</td>
+                        </tr>
+                        <tr>
+                            <td>404</td>
+                            <td>Symbol not found in database</td>
+                            <td>Ensure the symbol exists in the trading database</td>
+                        </tr>
+                        <tr>
+                            <td>404</td>
+                            <td>No clients found</td>
+                            <td>Add clients using the user management interface</td>
+                        </tr>
+                        <tr>
+                            <td>500</td>
+                            <td>Internal Server Error</td>
+                            <td>Check server logs for detailed error information</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+
+    <!-- JavaScript Dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+    
+    <script>
+        // Smooth scrolling for navigation links
+        document.querySelectorAll('.sidebar .nav-link').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const targetId = e.target.getAttribute('href').substring(1);
+                const targetElement = document.getElementById(targetId);
+                if (targetElement) {
+                    targetElement.scrollIntoView({ behavior: 'smooth' });
+                }
+                
+                // Update active link
+                document.querySelectorAll('.sidebar .nav-link').forEach(l => l.classList.remove('active'));
+                e.target.classList.add('active');
+            });
+        });
+
+        // Try endpoint function
+        function tryEndpoint(endpoint, method) {
+            // This would open a modal or redirect to a testing interface
+            alert(`Testing ${method} ${endpoint} - Feature coming soon!`);
+        }
+    </script>
+</body>
+</html>
