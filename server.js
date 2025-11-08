@@ -11,6 +11,7 @@ const tickerRouter = require("./tickerRouter");
 const EpicriseRouter = require("./Strategies/Epicrise/epicRise");
 const CMIRouter = require("./Strategies/CMI/cmi");
 const OptionTradeRouter = require("./Strategies/OptionTrade");
+const BankNiftyRouter = require("./Strategies/BankNifty");
 const orderResponsesRouter = require("./routes/orderResponses");
 const dashboardRouter = require("./routes/dashboard");
 const enhancedDashboardRouter = require("./routes/enhanced-dashboard");
@@ -1297,6 +1298,7 @@ app.use("/api/users", usersRouter);
 app.use("/Epicrise", EpicriseRouter);
 app.use("/CMI", CMIRouter);
 app.use("/OptionTrade", OptionTradeRouter);
+app.use("/BankNifty", BankNiftyRouter);
 
 // Manual trigger endpoints for testing
 app.post("/api/trigger-sharekhan-login", async (req, res) => {
