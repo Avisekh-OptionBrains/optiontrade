@@ -2,7 +2,7 @@ const DhanClient = require("./dhanClient");
 const fs = require("fs");
 const path = require("path");
 const axios = require("axios");
-const IIFLUser = require("../../../../../epicrisenew/models/IIFLUser");
+const IIFLUser = require("../../../../models/IIFLUser");
 const { sendMessageToTelegram } = require("../../../Epicrise/Utils/utilities");
 
 /**
