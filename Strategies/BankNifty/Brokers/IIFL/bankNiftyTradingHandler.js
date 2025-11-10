@@ -9,34 +9,20 @@ const { sendMessageToTelegram } = require("../../../Epicrise/Utils/utilities");
  * Read CSV file and create security ID map for BankNifty
  */
 function readSecurityIdMap() {
-  // Try multiple possible paths for the CSV file
-  const possiblePaths = [
-    path.join(__dirname, "../../../../../bankniftydata.csv"),  // From epicrisenew/Strategies/BankNifty/Brokers/IIFL/
-    path.join(process.cwd(), "bankniftydata.csv"),              // From current working directory
-    path.join(__dirname, "../../../../../../bankniftydata.csv") // One more level up
-  ];
+  // Use local data folder - path from Brokers/IIFL/ to BankNifty/data/
+  // __dirname = .../Strategies/BankNifty/Brokers/IIFL
+  // ../../data = .../Strategies/BankNifty/data
+  const csvPath = path.join(__dirname, "../../data/bankniftydata.csv");
 
-  console.log(`📂 Searching for BankNifty CSV file...`);
-  console.log(`   __dirname: ${__dirname}`);
-  console.log(`   process.cwd(): ${process.cwd()}`);
+  console.log(`📂 Reading BankNifty CSV file from local data folder...`);
+  console.log(`   Path: ${csvPath}`);
 
-  let csvPath = null;
-  for (const testPath of possiblePaths) {
-    console.log(`   Testing: ${testPath}`);
-    if (fs.existsSync(testPath)) {
-      csvPath = testPath;
-      console.log(`   ✅ Found at: ${csvPath}`);
-      break;
-    }
+  if (!fs.existsSync(csvPath)) {
+    console.error(`❌ BankNifty CSV file not found at: ${csvPath}`);
+    throw new Error(`BankNifty CSV file not found at: ${csvPath}`);
   }
 
-  if (!csvPath) {
-    console.error(`❌ BankNifty CSV file not found in any of these locations:`);
-    possiblePaths.forEach(p => console.error(`   - ${p}`));
-    throw new Error(`BankNifty CSV file not found. Tried ${possiblePaths.length} locations.`);
-  }
-
-  console.log(`📂 Reading BankNifty CSV file: ${csvPath}`);
+  console.log(`✅ CSV file found!`);
 
   const csvContent = fs.readFileSync(csvPath, "utf-8");
   const lines = csvContent.split("\n");
