@@ -325,11 +325,14 @@ function findDelta50Strikes(optionChainData, securityMap) {
  */
 async function sendTelegramNotification(signal, orders, results) {
   try {
-    const botToken = process.env.TELEGRAM_BOT_TOKEN;
-    const channelId = process.env.TELEGRAM_CHANNEL_ID;
+    // Use Epicrise Telegram credentials
+    const botToken = process.env.TELEGRAM_BOT_TOKEN_EPICRISE;
+    const channelId = process.env.TELEGRAM_CHANNEL_ID_EPICRISE;
 
     if (!botToken || !channelId) {
       console.log("⚠️ Telegram credentials not configured, skipping notification");
+      console.log(`   TELEGRAM_BOT_TOKEN_EPICRISE: ${botToken ? 'Set' : 'Not set'}`);
+      console.log(`   TELEGRAM_CHANNEL_ID_EPICRISE: ${channelId ? 'Set' : 'Not set'}`);
       return { success: false, error: "Telegram not configured" };
     }
 
@@ -392,8 +395,8 @@ async function saveTradeToDatabase(signal, orders, results) {
   } catch (error) {
     console.error(`❌ Error saving trade to database: ${error.message}`);
 
-    // Fallback: Save to JSON file
-    const tradesFile = path.join(__dirname, "../../../../../trades_backup_banknifty.json");
+    // Fallback: Save to JSON file in local data directory
+    const tradesFile = path.join(__dirname, "../../data/trades_backup_banknifty.json");
     const tradeData = {
       strategy: "BB TRAP BANKNIFTY",
       signal,

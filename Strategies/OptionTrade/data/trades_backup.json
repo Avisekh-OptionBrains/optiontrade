@@ -1,0 +1,142 @@
+[
+  {
+    "timestamp": "2025-11-10T03:58:53.539Z",
+    "strategy": "BB TRAP NIFTY",
+    "signal": {
+      "action": "buy",
+      "symbol": "NIFTY1!",
+      "entryPrice": 25560.2,
+      "stopLoss": 25520.2,
+      "target": 25640.2
+    },
+    "orders": [
+      {
+        "type": "CE",
+        "action": "BUY",
+        "strike": 25550,
+        "delta": 0.49,
+        "price": 82.3,
+        "security_id": 40109
+      },
+      {
+        "type": "PE",
+        "action": "SELL",
+        "strike": 25550,
+        "delta": -0.52,
+        "price": 76.95,
+        "security_id": 40112
+      }
+    ],
+    "results": [
+      {
+        "success": false,
+        "error": "Request failed with status code 401",
+        "clientName": "avisekh",
+        "order": {
+          "type": "CE",
+          "action": "BUY",
+          "strike": 25550,
+          "delta": 0.49,
+          "price": 82.3,
+          "security_id": 40109
+        }
+      },
+      {
+        "success": false,
+        "error": "Request failed with status code 401",
+        "clientName": "avisekh",
+        "order": {
+          "type": "PE",
+          "action": "SELL",
+          "strike": 25550,
+          "delta": -0.52,
+          "price": 76.95,
+          "security_id": 40112
+        }
+      }
+    ]
+  },
+  {
+    "timestamp": "2025-11-10T04:04:39.113Z",
+    "strategy": "BB TRAP NIFTY",
+    "signal": {
+      "action": "buy",
+      "symbol": "NIFTY1!",
+      "entryPrice": 25560.2,
+      "stopLoss": 25520.2,
+      "target": 25640.2
+    },
+    "orders": [
+      {
+        "type": "CE",
+        "action": "BUY",
+        "strike": 25550,
+        "delta": 0.52,
+        "price": 92.4,
+        "security_id": 40109
+      },
+      {
+        "type": "PE",
+        "action": "SELL",
+        "strike": 25550,
+        "delta": -0.47,
+        "price": 61.35,
+        "security_id": 40112
+      }
+    ],
+    "results": [
+      {
+        "success": true,
+        "data": {
+          "status": "Ok",
+          "message": "Success",
+          "result": [
+            {
+              "status": "Success",
+              "message": "Success",
+              "brokerOrderId": "251110000079736",
+              "requestTime": "10-Nov-2025 09:34:42"
+            }
+          ]
+        },
+        "clientName": "avisekh",
+        "quantity": 75,
+        "price": 92.4,
+        "order": {
+          "type": "CE",
+          "action": "BUY",
+          "strike": 25550,
+          "delta": 0.52,
+          "price": 92.4,
+          "security_id": 40109
+        }
+      },
+      {
+        "success": true,
+        "data": {
+          "status": "Ok",
+          "message": "Success",
+          "result": [
+            {
+              "status": "Success",
+              "message": "Success",
+              "brokerOrderId": "251110000079782",
+              "requestTime": "10-Nov-2025 09:34:43"
+            }
+          ]
+        },
+        "clientName": "avisekh",
+        "quantity": 75,
+        "price": 61.35,
+        "order": {
+          "type": "PE",
+          "action": "SELL",
+          "strike": 25550,
+          "delta": -0.47,
+          "price": 61.35,
+          "security_id": 40112
+        }
+      }
+    ]
+  }
+]

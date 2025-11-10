@@ -1423,10 +1423,10 @@ app.post("/api/iifl/test-login", async (req, res) => {
 //   await loginToMotilalOswalForAllClients();
 // })();
 
-// (async () => {
-//   console.log("iifl client login task trigger");
-//   await loginToIIFLForAllClients();
-// })();
+(async () => {
+  console.log("iifl client login task trigger");
+  await loginToIIFLForAllClients();
+})();
 
 // (async () => {
 //   console.log("Angel client login task trigger");
