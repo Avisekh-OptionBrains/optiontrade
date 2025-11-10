@@ -298,12 +298,227 @@ async function sendTelegramNotification(signal, orders, results) {
 }
 
 /**
+ * Get active trades for today
+ */
+async function getActiveTradesToday(symbol) {
+  try {
+    const Trade = require("../../../../models/Trade");
+
+    // Get start of today (IST)
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const activeTrades = await Trade.find({
+      'signal.symbol': symbol,
+      status: 'ACTIVE',
+      createdAt: { $gte: todayStart }
+    }).sort({ createdAt: -1 });
+
+    console.log(`\n📊 Found ${activeTrades.length} active trade(s) for ${symbol} today`);
+    return activeTrades;
+  } catch (error) {
+    console.error(`❌ Error fetching active trades: ${error.message}`);
+
+    // Fallback: Check JSON backup file
+    try {
+      const tradesFile = path.join(__dirname, "../../data/trades_backup.json");
+      if (fs.existsSync(tradesFile)) {
+        const content = fs.readFileSync(tradesFile, "utf-8");
+        const trades = JSON.parse(content);
+
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+
+        const activeTrades = trades.filter(t =>
+          t.signal?.symbol === symbol &&
+          t.status === 'ACTIVE' &&
+          new Date(t.timestamp) >= todayStart
+        );
+
+        console.log(`\n📊 Found ${activeTrades.length} active trade(s) in backup file`);
+        return activeTrades;
+      }
+    } catch (fileError) {
+      console.error(`❌ Error reading backup file: ${fileError.message}`);
+    }
+
+    return [];
+  }
+}
+
+/**
+ * Square off existing positions
+ */
+async function squareOffPositions(activeTrade, dhanClient, securityMap) {
+  console.log("\n╔════════════════════════════════════════════════════════════╗");
+  console.log("║           🔄 SQUARING OFF EXISTING POSITIONS              ║");
+  console.log("╚════════════════════════════════════════════════════════════╝\n");
+
+  console.log(`Previous Signal: ${activeTrade.signal.action.toUpperCase()} ${activeTrade.signal.symbol}`);
+  console.log(`Previous Orders:`);
+  activeTrade.orders.forEach((order, idx) => {
+    console.log(`   ${idx + 1}. ${order.action} ${order.type} Strike ${order.strike} (Security ID: ${order.security_id})`);
+  });
+
+  try {
+    // Fetch current option chain to get latest prices
+    console.log("\n📊 Fetching current option chain for square-off prices...");
+    const expiryList = await dhanClient.getExpiryList(13, "IDX_I"); // NIFTY
+    const nearestExpiry = expiryList.data[0];
+    const optionChainData = await dhanClient.getOptionChain(13, "IDX_I", nearestExpiry);
+
+    console.log(`✅ Current option chain fetched`);
+    console.log(`   Underlying Last Price: ${optionChainData.data?.last_price || optionChainData.last_price}`);
+
+    // Get current prices for the strikes we need to square off
+    const optionChain = optionChainData.data?.oc || optionChainData.data;
+    const squareOffOrders = [];
+
+    for (const order of activeTrade.orders) {
+      // Find the strike in current option chain (option chain is an object with strike keys)
+      const strikeKey = order.strike.toFixed(6); // Dhan uses 6 decimal places for strike keys
+      const strikeData = optionChain[strikeKey];
+
+      if (!strikeData) {
+        console.error(`❌ Strike ${order.strike} not found in current option chain`);
+        console.error(`   Available strikes: ${Object.keys(optionChain).slice(0, 5).join(', ')}...`);
+        continue;
+      }
+
+      // Get current price for the option type
+      let currentPrice;
+      if (order.type === 'CE') {
+        currentPrice = strikeData.ce?.top_ask_price || strikeData.ce?.ltp || order.price;
+      } else {
+        currentPrice = strikeData.pe?.top_ask_price || strikeData.pe?.ltp || order.price;
+      }
+
+      // Reverse the action: BUY becomes SELL, SELL becomes BUY
+      const reverseAction = order.action === 'BUY' ? 'SELL' : 'BUY';
+
+      squareOffOrders.push({
+        type: order.type,
+        action: reverseAction,
+        strike: order.strike,
+        price: currentPrice,
+        security_id: order.security_id,
+        originalAction: order.action,
+        originalPrice: order.price
+      });
+
+      console.log(`\n🔄 Square-off order for ${order.type} Strike ${order.strike}:`);
+      console.log(`   Original: ${order.action} at ₹${order.price}`);
+      console.log(`   Square-off: ${reverseAction} at ₹${currentPrice}`);
+      console.log(`   P&L: ₹${(reverseAction === 'SELL' ? currentPrice - order.price : order.price - currentPrice).toFixed(2)} per lot`);
+    }
+
+    // Place square-off orders for all users
+    console.log("\n\n============================================================");
+    console.log("📤 Placing SQUARE-OFF orders for all users...");
+    console.log("============================================================\n");
+
+    const IIFLUser = require("../../../../models/IIFLUser");
+    const users = await IIFLUser.find({ state: "live" });
+    console.log(`✅ Found ${users.length} IIFL users\n`);
+
+    const results = [];
+
+    for (const user of users) {
+      console.log(`📊 IIFL Client: ${user.clientName}`);
+      console.log(`   💰 Capital: ₹${user.capital?.toLocaleString()}`);
+      console.log(`   🔑 Has Token: ${!!user.token}`);
+
+      for (const order of squareOffOrders) {
+        console.log(`\n📈 Placing ${order.action} order for 75 lots of ${order.type} Strike ${order.strike} at ₹${order.price}`);
+
+        const orderPayload = [{
+          instrumentId: order.security_id,
+          exchange: "NSEFO",
+          transactionType: order.action,
+          quantity: "75",
+          orderComplexity: "REGULAR",
+          product: "INTRADAY",
+          orderType: "LIMIT",
+          validity: "DAY",
+          price: order.price.toString(),
+          apiOrderSource: "OptionTradeStrategy",
+          orderTag: `SquareOff_${order.type}_${order.strike}_${Date.now()}`
+        }];
+
+        console.log(`📡 IIFL Square-off Order Payload for ${user.clientName}:`);
+        console.log(JSON.stringify(orderPayload, null, 2));
+
+        try {
+          console.log(`🚀 Sending square-off order to IIFL for ${user.clientName}...`);
+          const response = await axios.post(
+            "https://api.iiflcapital.com/v1/orders",
+            orderPayload,
+            {
+              headers: {
+                Authorization: `Bearer ${user.token}`,
+                "Content-Type": "application/json",
+              },
+            }
+          );
+
+          console.log(`✅ Square-off order placed successfully for ${user.clientName}`);
+          results.push({
+            success: true,
+            user: user.clientName,
+            order: order,
+            response: response.data,
+          });
+        } catch (error) {
+          console.error(`❌ Error placing square-off order for ${user.clientName}:`, error.response?.data || error.message);
+          results.push({
+            success: false,
+            user: user.clientName,
+            order: order,
+            error: error.response?.data || error.message,
+          });
+        }
+      }
+    }
+
+    const successful = results.filter(r => r.success).length;
+    const failed = results.filter(r => !r.success).length;
+
+    console.log(`\n📊 Square-off Summary: ${successful} successful, ${failed} failed out of ${results.length} total orders`);
+
+    // Update the active trade status to COMPLETED
+    try {
+      const Trade = require("../../../../models/Trade");
+      await Trade.findByIdAndUpdate(activeTrade._id, {
+        status: 'COMPLETED',
+        updatedAt: new Date()
+      });
+      console.log(`✅ Previous trade marked as COMPLETED`);
+    } catch (error) {
+      console.error(`⚠️ Could not update trade status: ${error.message}`);
+    }
+
+    return {
+      success: true,
+      squareOffOrders,
+      results
+    };
+
+  } catch (error) {
+    console.error(`❌ Error squaring off positions: ${error.message}`);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+/**
  * Save trade to database or JSON file
  */
 async function saveTradeToDatabase(signal, orders, results) {
   try {
     // Try to save to MongoDB
-    const Trade = require("../../../../../models/Trade");
+    const Trade = require("../../../../models/Trade");
 
     const trade = new Trade({
       strategy: "BB TRAP",
@@ -367,6 +582,10 @@ async function processBBTrapSignal(signalText) {
     console.log("✅ Signal parsed successfully:");
     console.log(JSON.stringify(signal, null, 2));
 
+    // Check for active trades in opposite direction
+    console.log("\n🔍 Checking for active trades...");
+    const activeTrades = await getActiveTradesToday(signal.symbol);
+
     // Initialize Dhan Client
     const dhanClient = new DhanClient();
 
@@ -374,6 +593,32 @@ async function processBBTrapSignal(signalText) {
     console.log("\n1. Reading CSV file and mapping security IDs...");
     const securityIdMap = readSecurityIdMap();
     console.log(`✅ Security ID map created with ${Object.keys(securityIdMap).length} entries\n`);
+
+    // Check if we need to square off existing positions
+    let squareOffResult = null;
+    if (activeTrades.length > 0) {
+      const lastTrade = activeTrades[0];
+
+      // Check if the new signal is opposite to the last active trade
+      if (lastTrade.signal.action !== signal.action) {
+        console.log("\n⚠️ OPPOSITE SIGNAL DETECTED!");
+        console.log(`   Previous: ${lastTrade.signal.action.toUpperCase()} ${lastTrade.signal.symbol}`);
+        console.log(`   New: ${signal.action.toUpperCase()} ${signal.symbol}`);
+        console.log("\n🔄 Squaring off existing positions before placing new orders...\n");
+
+        squareOffResult = await squareOffPositions(lastTrade, dhanClient, securityIdMap);
+
+        if (squareOffResult.success) {
+          console.log("\n✅ Existing positions squared off successfully!");
+        } else {
+          console.log("\n⚠️ Square-off had some issues, but continuing with new orders...");
+        }
+      } else {
+        console.log(`\n✅ Same direction signal (${signal.action.toUpperCase()}), no square-off needed`);
+      }
+    } else {
+      console.log("✅ No active trades found, proceeding with new orders");
+    }
 
     // Get Expiry List for NIFTY
     console.log("2. Fetching expiry list for NIFTY...");
@@ -419,6 +664,7 @@ async function processBBTrapSignal(signalText) {
       results,
       trade: savedTrade,
       telegram: telegramResult,
+      squareOff: squareOffResult,
     };
   } catch (error) {
     console.error("❌ Error processing BB TRAP signal:", error.message);

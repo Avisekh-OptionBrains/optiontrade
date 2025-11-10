@@ -40,23 +40,18 @@ class DhanClient {
   }
 
   /**
-   * Get expiry list for BankNifty
-   * UnderlyingScrip: 25 for BankNifty
-   * UnderlyingSeg: "IDX_I" for Index
+   * Get expiry list
+   * @param {number} underlyingScrip - 25 for BankNifty, 13 for NIFTY
+   * @param {string} underlyingSeg - "IDX_I" for Index
    */
-  async getExpiryList() {
+  async getExpiryList(underlyingScrip, underlyingSeg) {
     await this.waitForRateLimit();
 
     const url = `${this.baseURL}/v2/optionchain/expirylist`;
     const payload = {
-      UnderlyingScrip: 25,  // BankNifty (numeric, not string)
-      UnderlyingSeg: "IDX_I"
+      UnderlyingScrip: underlyingScrip,
+      UnderlyingSeg: underlyingSeg
     };
-
-
-    console.log(`📡 Fetching BankNifty expiry list from Dhan API...`);
-    console.log(`URL: ${url}`);
-    console.log(`Payload:`, JSON.stringify(payload, null, 2));
 
     try {
       const response = await axios.post(url, payload, {
@@ -64,7 +59,6 @@ class DhanClient {
         timeout: 30000,
       });
 
-      console.log(`✅ Expiry list received`);
       return response.data;
     } catch (error) {
       console.error(`❌ Error fetching expiry list:`, error.response?.data || error.message);
@@ -73,22 +67,20 @@ class DhanClient {
   }
 
   /**
-   * Get option chain for BankNifty
+   * Get option chain
+   * @param {number} underlyingScrip - 25 for BankNifty, 13 for NIFTY
+   * @param {string} underlyingSeg - "IDX_I" for Index
    * @param {string} expiry - Expiry date in format "YYYY-MM-DD"
    */
-  async getOptionChain(expiry) {
+  async getOptionChain(underlyingScrip, underlyingSeg, expiry) {
     await this.waitForRateLimit();
 
     const url = `${this.baseURL}/v2/optionchain`;
     const payload = {
-      UnderlyingScrip: 25,  // BankNifty (numeric, not string)
-      UnderlyingSeg: "IDX_I",
+      UnderlyingScrip: underlyingScrip,
+      UnderlyingSeg: underlyingSeg,
       Expiry: expiry
     };
-
-    console.log(`📡 Fetching BankNifty option chain from Dhan API...`);
-    console.log(`URL: ${url}`);
-    console.log(`Payload:`, JSON.stringify(payload, null, 2));
 
     try {
       const response = await axios.post(url, payload, {
@@ -96,7 +88,6 @@ class DhanClient {
         timeout: 30000,
       });
 
-      console.log(`✅ Option chain received`);
       return response.data;
     } catch (error) {
       console.error(`❌ Error fetching option chain:`, error.response?.data || error.message);

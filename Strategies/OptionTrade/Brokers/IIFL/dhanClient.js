@@ -13,6 +13,26 @@ class DhanClient {
     if (!this.accessToken || !this.clientId) {
       throw new Error("ACCESS_TOKEN and CLIENT_ID are required. Please set them in .env file or pass them to constructor.");
     }
+
+    // Rate limiting: 1 request per 3 seconds
+    this.lastRequestTime = 0;
+    this.minRequestInterval = 3000; // 3 seconds
+  }
+
+  /**
+   * Wait for rate limit
+   */
+  async waitForRateLimit() {
+    const now = Date.now();
+    const timeSinceLastRequest = now - this.lastRequestTime;
+
+    if (timeSinceLastRequest < this.minRequestInterval) {
+      const waitTime = this.minRequestInterval - timeSinceLastRequest;
+      console.log(`⏳ Rate limit: Waiting ${waitTime}ms before next request...`);
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+    }
+
+    this.lastRequestTime = Date.now();
   }
 
   /**
@@ -31,6 +51,8 @@ class DhanClient {
    * Get Option Chain for a specific underlying
    */
   async getOptionChain(underlyingScrip, underlyingSeg, expiry) {
+    await this.waitForRateLimit();
+
     try {
       const response = await axios.post(
         `${this.baseURL}/optionchain`,
@@ -54,6 +76,8 @@ class DhanClient {
    * Get list of all expiry dates for an underlying
    */
   async getExpiryList(underlyingScrip, underlyingSeg) {
+    await this.waitForRateLimit();
+
     try {
       const response = await axios.post(
         `${this.baseURL}/optionchain/expirylist`,
@@ -106,6 +130,19 @@ class DhanClient {
       return Math.round(num * 100) / 100;
     };
 
+    // Get available strikes from CSV if securityIdMap is provided
+    const availableStrikes = securityIdMap ?
+      Object.keys(securityIdMap)
+        .map(key => parseFloat(key.split('_')[0]))
+        .filter((v, i, a) => a.indexOf(v) === i) // unique values
+        .sort((a, b) => a - b)
+      : null;
+
+    console.log(`📊 Available strikes in CSV: ${availableStrikes ? availableStrikes.length : 'N/A'}`);
+    if (availableStrikes) {
+      console.log(`   Range: ${availableStrikes[0]} to ${availableStrikes[availableStrikes.length - 1]}`);
+    }
+
     const allStrikes = Object.keys(optionChainData.data.oc)
       .map((s) => parseFloat(s))
       .sort((a, b) => a - b);
@@ -116,7 +153,13 @@ class DhanClient {
     let closestPEDiff = Infinity;
 
     // Find strikes with delta closest to 0.50 for CE and -0.50 for PE
+    // Only consider strikes that exist in CSV if securityIdMap is provided
     allStrikes.forEach((strike) => {
+      // Skip if strike not in CSV
+      if (availableStrikes && !availableStrikes.includes(strike)) {
+        return;
+      }
+
       const strikeKey = strike.toFixed(6);
       const originalData = optionChainData.data.oc[strikeKey];
 
@@ -137,6 +180,8 @@ class DhanClient {
           const ceSecurityId = securityIdMap[`${strike}_CE`];
           if (ceSecurityId) {
             closestCE.security_id = ceSecurityId;
+          } else {
+            console.warn(`⚠️ Security ID not found for CE Strike ${strike}`);
           }
         }
       }
