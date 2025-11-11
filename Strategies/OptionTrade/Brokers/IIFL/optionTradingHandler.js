@@ -48,9 +48,42 @@ function readSecurityIdMap() {
 
 /**
  * Parse BB TRAP signal
- * Example: "BB TRAP Buy NIFTY1! at 25560.2 | SL: 25520.2 | Target: 25640.2"
+ * Examples:
+ *   - "BB TRAP Buy NIFTY1! at 25560.2 | SL: 25520.2 | Target: 25640.2"
+ *   - "BB TRAP Exit NIFTY at 19820.5 | Intraday Exit"
+ *   - "BB TRAP Exit NIFTY at 19820.5 | End of Day Exit"
+ *   - "BB TRAP Exit Sell NIFTY at 19880.5 | SL Hit"
+ *   - "BB TRAP Exit Sell NIFTY at 19780.5 | Target Hit"
  */
 function parseBBTrapSignal(signalText) {
+  // Try to match Exit signal with direction (Buy/Sell) - for SL Hit / Target Hit
+  const exitWithDirectionRegex = /BB TRAP Exit (Buy|Sell) (.+?) at ([\d.]+) \| (.+)/i;
+  const exitWithDirectionMatch = signalText.match(exitWithDirectionRegex);
+
+  if (exitWithDirectionMatch) {
+    return {
+      action: 'exit',
+      originalDirection: exitWithDirectionMatch[1].toLowerCase(), // "buy" or "sell"
+      symbol: exitWithDirectionMatch[2].trim(), // "NIFTY" or "NIFTY1!"
+      exitPrice: parseFloat(exitWithDirectionMatch[3]),
+      exitType: exitWithDirectionMatch[4].trim(), // "SL Hit" or "Target Hit"
+    };
+  }
+
+  // Try to match Exit signal without direction - for Intraday/End of Day
+  const exitRegex = /BB TRAP Exit (.+?) at ([\d.]+) \| (.+)/i;
+  const exitMatch = signalText.match(exitRegex);
+
+  if (exitMatch) {
+    return {
+      action: 'exit',
+      symbol: exitMatch[1].trim(), // "NIFTY" or "NIFTY1!"
+      exitPrice: parseFloat(exitMatch[2]),
+      exitType: exitMatch[3].trim(), // "Intraday Exit" or "End of Day Exit"
+    };
+  }
+
+  // Try to match Buy/Sell signal
   const regex = /BB TRAP (Buy|Sell) (.+?) at ([\d.]+) \| SL: ([\d.]+) \| Target: ([\d.]+)/i;
   const match = signalText.match(regex);
 
@@ -299,6 +332,7 @@ async function sendTelegramNotification(signal, orders, results) {
 
 /**
  * Get active trades for today
+ * Handles symbol variations: "NIFTY" matches "NIFTY1!", etc.
  */
 async function getActiveTradesToday(symbol) {
   try {
@@ -308,8 +342,12 @@ async function getActiveTradesToday(symbol) {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
+    // Normalize symbol: "NIFTY" or "NIFTY1!" both match
+    const symbolPattern = symbol.replace(/1!$/, ''); // Remove "1!" if present
+    const symbolRegex = new RegExp(`^${symbolPattern}(1!)?$`, 'i');
+
     const activeTrades = await Trade.find({
-      'signal.symbol': symbol,
+      'signal.symbol': symbolRegex,
       status: 'ACTIVE',
       createdAt: { $gte: todayStart }
     }).sort({ createdAt: -1 });
@@ -329,11 +367,15 @@ async function getActiveTradesToday(symbol) {
         const todayStart = new Date();
         todayStart.setHours(0, 0, 0, 0);
 
-        const activeTrades = trades.filter(t =>
-          t.signal?.symbol === symbol &&
-          t.status === 'ACTIVE' &&
-          new Date(t.timestamp) >= todayStart
-        );
+        // Normalize symbol for matching
+        const symbolPattern = symbol.replace(/1!$/, '');
+
+        const activeTrades = trades.filter(t => {
+          const tradeSymbol = t.signal?.symbol?.replace(/1!$/, '');
+          return tradeSymbol === symbolPattern &&
+            t.status === 'ACTIVE' &&
+            new Date(t.timestamp) >= todayStart;
+        });
 
         console.log(`\n📊 Found ${activeTrades.length} active trade(s) in backup file`);
         return activeTrades;
@@ -581,6 +623,58 @@ async function processBBTrapSignal(signalText) {
 
     console.log("✅ Signal parsed successfully:");
     console.log(JSON.stringify(signal, null, 2));
+
+    // Handle EXIT signals
+    if (signal.action === 'exit') {
+      console.log("\n🚪 EXIT SIGNAL DETECTED!");
+      console.log(`   Exit Type: ${signal.exitType}`);
+      console.log(`   Exit Price: ₹${signal.exitPrice}`);
+      if (signal.originalDirection) {
+        console.log(`   Original Direction: ${signal.originalDirection.toUpperCase()}`);
+      }
+
+      // Check for active trades
+      console.log("\n🔍 Checking for active trades...");
+      const activeTrades = await getActiveTradesToday(signal.symbol);
+
+      if (activeTrades.length === 0) {
+        console.log("⚠️ No active trades found to exit");
+        return {
+          success: false,
+          error: "No active trades found to exit",
+          message: "No active positions to square off"
+        };
+      }
+
+      // Initialize Dhan Client
+      const dhanClient = new DhanClient();
+
+      // Read CSV and create security ID map
+      console.log("\n1. Reading CSV file and mapping security IDs...");
+      const securityIdMap = readSecurityIdMap();
+      console.log(`✅ Security ID map created with ${Object.keys(securityIdMap).length} entries\n`);
+
+      // Square off all active trades
+      console.log(`\n📊 Found ${activeTrades.length} active trade(s) to exit\n`);
+
+      const squareOffResult = await squareOffPositions(activeTrades[0], dhanClient, securityIdMap);
+
+      if (squareOffResult.success) {
+        console.log("\n✅ EXIT COMPLETED SUCCESSFULLY!");
+        return {
+          success: true,
+          message: `${signal.exitType} completed successfully`,
+          squareOffResult
+        };
+      } else {
+        console.log("\n❌ EXIT FAILED!");
+        return {
+          success: false,
+          error: "Failed to square off positions",
+          squareOffResult
+        };
+      }
+    }
 
     // Check for active trades in opposite direction
     console.log("\n🔍 Checking for active trades...");
