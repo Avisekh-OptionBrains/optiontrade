@@ -214,7 +214,7 @@ async function placeOptionOrders(signal, ceStrike, peStrike) {
       action: "BUY",
       strike: ceStrike.strike,
       delta: ceStrike.delta,
-      price: ceStrike.top_ask_price,
+      price: ceStrike.price, // Changed from top_ask_price to price
       security_id: ceStrike.security_id
     });
     orders.push({
@@ -222,7 +222,7 @@ async function placeOptionOrders(signal, ceStrike, peStrike) {
       action: "SELL",
       strike: peStrike.strike,
       delta: peStrike.delta,
-      price: peStrike.top_ask_price,
+      price: peStrike.price, // Changed from top_ask_price to price
       security_id: peStrike.security_id
     });
   } else {
@@ -232,7 +232,7 @@ async function placeOptionOrders(signal, ceStrike, peStrike) {
       action: "SELL",
       strike: ceStrike.strike,
       delta: ceStrike.delta,
-      price: ceStrike.top_ask_price,
+      price: ceStrike.price, // Changed from top_ask_price to price
       security_id: ceStrike.security_id
     });
     orders.push({
@@ -240,7 +240,7 @@ async function placeOptionOrders(signal, ceStrike, peStrike) {
       action: "BUY",
       strike: peStrike.strike,
       delta: peStrike.delta,
-      price: peStrike.top_ask_price,
+      price: peStrike.price, // Changed from top_ask_price to price
       security_id: peStrike.security_id
     });
   }
@@ -315,10 +315,10 @@ function findDelta50Strikes(optionChainData, securityMap) {
         closestCE = {
           strike: parseFloat(strikePrice),
           delta: parseFloat(ceDelta.toFixed(2)),
-          top_ask_price: parseFloat((strikeData.ce.top_ask_price || 0).toFixed(2)),
+          price: parseFloat((strikeData.ce.top_ask_price || 0).toFixed(2)), // Renamed from top_ask_price to price
           security_id: securityId
         };
-        console.log(`   ✅ Found CE: Strike ${closestCE.strike}, Delta ${closestCE.delta}, Price ${closestCE.top_ask_price}`);
+        console.log(`   ✅ Found CE: Strike ${closestCE.strike}, Delta ${closestCE.delta}, Price ${closestCE.price}`);
       }
     }
 
@@ -333,10 +333,10 @@ function findDelta50Strikes(optionChainData, securityMap) {
         closestPE = {
           strike: parseFloat(strikePrice),
           delta: parseFloat(peDelta.toFixed(2)),
-          top_ask_price: parseFloat((strikeData.pe.top_ask_price || 0).toFixed(2)),
+          price: parseFloat((strikeData.pe.top_ask_price || 0).toFixed(2)), // Renamed from top_ask_price to price
           security_id: securityId
         };
-        console.log(`   ✅ Found PE: Strike ${closestPE.strike}, Delta ${closestPE.delta}, Price ${closestPE.top_ask_price}`);
+        console.log(`   ✅ Found PE: Strike ${closestPE.strike}, Delta ${closestPE.delta}, Price ${closestPE.price}`);
       }
     }
   });
@@ -407,28 +407,30 @@ async function sendTelegramNotification(signal, orders, results) {
 }
 
 /**
- * Get active trades for today
+ * Get active trades (not limited to today - can square off positions from previous days)
  * Handles symbol variations: "BANKNIFTY" matches "BANKNIFTY1!", etc.
  */
 async function getActiveTradesToday(symbol) {
   try {
     const Trade = require("../../../../models/Trade");
 
-    // Get start of today (IST)
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-
     // Normalize symbol: "BANKNIFTY" or "BANKNIFTY1!" both match
     const symbolPattern = symbol.replace(/1!$/, ''); // Remove "1!" if present
     const symbolRegex = new RegExp(`^${symbolPattern}(1!)?$`, 'i');
 
+    // Find ALL active trades for this symbol (not just today's)
+    // This allows squaring off positions from previous days
     const activeTrades = await Trade.find({
       'signal.symbol': symbolRegex,
-      status: 'ACTIVE',
-      createdAt: { $gte: todayStart }
+      status: 'ACTIVE'
     }).sort({ createdAt: -1 });
 
-    console.log(`\n📊 Found ${activeTrades.length} active trade(s) for ${symbol} today`);
+    console.log(`\n📊 Found ${activeTrades.length} active trade(s) for ${symbol}`);
+
+    if (activeTrades.length > 0) {
+      console.log(`   Most recent: ${activeTrades[0].signal.action.toUpperCase()} from ${activeTrades[0].createdAt.toLocaleString()}`);
+    }
+
     return activeTrades;
   } catch (error) {
     console.error(`❌ Error fetching active trades: ${error.message}`);
@@ -440,17 +442,12 @@ async function getActiveTradesToday(symbol) {
         const fileContent = fs.readFileSync(tradesFile, "utf-8");
         const trades = JSON.parse(fileContent);
 
-        const todayStart = new Date();
-        todayStart.setHours(0, 0, 0, 0);
-
         // Normalize symbol for matching
         const symbolPattern = symbol.replace(/1!$/, '');
 
         const activeTrades = trades.filter(t => {
           const tradeSymbol = t.signal?.symbol?.replace(/1!$/, '');
-          return tradeSymbol === symbolPattern &&
-            t.status === 'ACTIVE' &&
-            new Date(t.timestamp) >= todayStart;
+          return tradeSymbol === symbolPattern && t.status === 'ACTIVE';
         });
 
         console.log(`\n📊 Found ${activeTrades.length} active trade(s) in backup file`);
@@ -638,16 +635,19 @@ async function saveTradeToDatabase(signal, orders, results) {
     // Try to save to MongoDB
     const Trade = require("../../../../models/Trade");
 
+    // Trade is ACTIVE if strategy calculated successfully
+    // Even if broker execution failed, the trade is still tracked
     const trade = new Trade({
       strategy: "BB TRAP BANKNIFTY",
       signal,
       orders,
       results,
-      status: "ACTIVE",
+      status: "ACTIVE", // Always ACTIVE - strategy calculated the trade
     });
 
     await trade.save();
     console.log(`✅ Trade saved to database with ID: ${trade._id}`);
+    console.log(`   Status: ACTIVE (strategy-based, independent of broker execution)`);
     return trade;
   } catch (error) {
     console.error(`❌ Error saving trade to database: ${error.message}`);
@@ -659,7 +659,7 @@ async function saveTradeToDatabase(signal, orders, results) {
       signal,
       orders,
       results,
-      status: "ACTIVE",
+      status: "ACTIVE", // Always ACTIVE
       timestamp: new Date().toISOString(),
     };
 
@@ -780,59 +780,146 @@ async function processBBTrapSignal(messageText) {
 
         if (squareOffResult.success) {
           console.log("\n✅ Existing positions squared off successfully!");
+          console.log("   Now proceeding with new orders...\n");
         } else {
           console.log("\n⚠️ Square-off had some issues, but continuing with new orders...");
         }
       } else {
-        console.log(`\n✅ Same direction signal (${signal.action.toUpperCase()}), no square-off needed`);
+        // Same direction signal - Pine Script prevents duplicates, so this shouldn't happen
+        // But if it does, we'll just log it and continue (might be a manual test)
+        console.log(`\n⚠️ SAME DIRECTION SIGNAL DETECTED!`);
+        console.log(`   Already in ${signal.action.toUpperCase()} position`);
+        console.log(`   ⚙️ Pine Script should prevent this - might be manual test`);
+        console.log(`   Proceeding anyway...\n`);
       }
     } else {
       console.log("✅ No active trades found, proceeding with new orders");
     }
 
-    // Get expiry list
-    console.log("\n2. Fetching expiry list for BankNifty...");
-    const expiryList = await dhanClient.getExpiryList(25, "IDX_I"); // BankNifty
+    // STRATEGY EXECUTION (Independent of broker)
+    let orders = [];
+    let results = [];
+    let delta50Strikes = null;
 
-    if (!expiryList || !expiryList.data || expiryList.data.length === 0) {
-      throw new Error("No expiry dates available for BankNifty");
+    try {
+      // Get expiry list
+      console.log("\n2. Fetching expiry list for BankNifty...");
+      const expiryList = await dhanClient.getExpiryList(25, "IDX_I"); // BankNifty
+
+      if (!expiryList || !expiryList.data || expiryList.data.length === 0) {
+        throw new Error("No expiry dates available for BankNifty");
+      }
+
+      console.log(`✅ Available expiries: ${expiryList.data.length}`);
+      console.log(`   First expiry: ${expiryList.data[0]}`);
+
+      // Use the first (nearest) expiry
+      const expiry = expiryList.data[0];
+
+      // Get option chain
+      console.log(`\n3. Fetching option chain for expiry: ${expiry}...`);
+      const optionChain = await dhanClient.getOptionChain(25, "IDX_I", expiry);
+
+      if (!optionChain || !optionChain.data) {
+        throw new Error("Failed to fetch option chain data for BankNifty");
+      }
+
+      console.log(`✅ Option chain fetched`);
+      console.log(`   Underlying Last Price: ${optionChain.data?.last_price}`);
+
+      // Find strikes with delta closest to 0.50
+      console.log(`\n4. Finding strikes with delta closest to 0.50...`);
+      delta50Strikes = findDelta50Strikes(optionChain, securityMap);
+
+      if (!delta50Strikes.ce || !delta50Strikes.pe) {
+        throw new Error("Could not find suitable strikes with delta close to 0.50");
+      }
+
+      // Create order objects based on strategy
+      if (signal.action === "buy") {
+        orders = [
+          {
+            type: "CE",
+            action: "BUY",
+            strike: delta50Strikes.ce.strike,
+            delta: delta50Strikes.ce.delta,
+            price: delta50Strikes.ce.price,
+            security_id: delta50Strikes.ce.security_id,
+          },
+          {
+            type: "PE",
+            action: "SELL",
+            strike: delta50Strikes.pe.strike,
+            delta: delta50Strikes.pe.delta,
+            price: delta50Strikes.pe.price,
+            security_id: delta50Strikes.pe.security_id,
+          },
+        ];
+      } else {
+        orders = [
+          {
+            type: "CE",
+            action: "SELL",
+            strike: delta50Strikes.ce.strike,
+            delta: delta50Strikes.ce.delta,
+            price: delta50Strikes.ce.price,
+            security_id: delta50Strikes.ce.security_id,
+          },
+          {
+            type: "PE",
+            action: "BUY",
+            strike: delta50Strikes.pe.strike,
+            delta: delta50Strikes.pe.delta,
+            price: delta50Strikes.pe.price,
+            security_id: delta50Strikes.pe.security_id,
+          },
+        ];
+      }
+
+      console.log("\n✅ STRATEGY CALCULATED SUCCESSFULLY!");
+      console.log(`   Orders to execute: ${orders.length}`);
+
+    } catch (error) {
+      console.error("\n❌ STRATEGY CALCULATION FAILED!");
+      console.error(`   Error: ${error.message}`);
+
+      // Strategy failed - cannot proceed
+      return {
+        success: false,
+        error: `Strategy calculation failed: ${error.message}`,
+        signal,
+        squareOff: squareOffResult,
+      };
     }
 
-    console.log(`✅ Available expiries: ${expiryList.data.length}`);
-    console.log(`   First expiry: ${expiryList.data[0]}`);
+    // BROKER EXECUTION (Best effort - failures are OK)
+    console.log("\n5. Attempting broker execution via IIFL...");
+    try {
+      const executionResult = await placeOptionOrders(signal, delta50Strikes.ce, delta50Strikes.pe);
+      results = executionResult.results;
 
-    // Use the first (nearest) expiry
-    const expiry = expiryList.data[0];
+      const successCount = results.filter(r => r.success).length;
+      const failCount = results.filter(r => !r.success).length;
 
-    // Get option chain
-    console.log(`\n3. Fetching option chain for expiry: ${expiry}...`);
-    const optionChain = await dhanClient.getOptionChain(25, "IDX_I", expiry);
+      if (successCount > 0) {
+        console.log(`✅ Broker execution: ${successCount} successful, ${failCount} failed`);
+      } else {
+        console.log(`⚠️ Broker execution: All orders failed (but trade is still recorded)`);
+      }
+    } catch (error) {
+      console.error(`⚠️ Broker execution failed: ${error.message}`);
+      console.log(`   Trade will still be saved with calculated prices`);
 
-    if (!optionChain || !optionChain.data) {
-      throw new Error("Failed to fetch option chain data for BankNifty");
+      // Create failed results for each order
+      results = orders.map(order => ({
+        success: false,
+        order: order,
+        error: `Broker execution failed: ${error.message}`,
+      }));
     }
 
-    console.log(`✅ Option chain fetched`);
-    console.log(`   Underlying Last Price: ${optionChain.data?.last_price}`);
-
-    // Log the entire option chain response for debugging
-    console.log("\n📊 FULL OPTION CHAIN RESPONSE:");
-    console.log(JSON.stringify(optionChain, null, 2));
-    console.log("\n");
-
-    // Find strikes with delta closest to 0.50
-    console.log(`4. Finding strikes with delta closest to 0.50...`);
-    const delta50Strikes = findDelta50Strikes(optionChain, securityMap);
-
-    if (!delta50Strikes.ce || !delta50Strikes.pe) {
-      throw new Error("Could not find suitable strikes with delta close to 0.50");
-    }
-
-    // Place option orders
-    const { orders, results } = await placeOptionOrders(signal, delta50Strikes.ce, delta50Strikes.pe);
-
-    // Send Telegram notification
-    console.log("\n5. Sending Telegram notification...");
+    // Send Telegram notification (always, even if broker failed)
+    console.log("\n6. Sending Telegram notification...");
     const telegramResult = await sendTelegramNotification(signal, orders, results);
     if (telegramResult.success) {
       console.log(`✅ Telegram notification sent (Message ID: ${telegramResult.messageId})`);
@@ -840,10 +927,15 @@ async function processBBTrapSignal(messageText) {
       console.log(`⚠️ Telegram notification failed: ${telegramResult.error}`);
     }
 
-    // Save trade to database
+    // Save trade to database (always, even if broker failed)
+    console.log("\n7. Saving trade to database...");
     const savedTrade = await saveTradeToDatabase(signal, orders, results);
 
     console.log("\n=== PROCESSING COMPLETE ===");
+    console.log(`✅ Strategy: Calculated`);
+    console.log(`${results.some(r => r.success) ? '✅' : '⚠️'} Broker: ${results.filter(r => r.success).length}/${results.length} orders executed`);
+    console.log(`✅ Database: Trade saved`);
+    console.log(`${telegramResult.success ? '✅' : '⚠️'} Telegram: ${telegramResult.success ? 'Sent' : 'Failed'}`);
 
     return {
       success: true,

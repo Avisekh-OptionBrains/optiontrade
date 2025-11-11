@@ -143,7 +143,14 @@ class DhanClient {
       console.log(`   Range: ${availableStrikes[0]} to ${availableStrikes[availableStrikes.length - 1]}`);
     }
 
-    const allStrikes = Object.keys(optionChainData.data.oc)
+    // Create a map of strike number to original string key
+    const strikeKeyMap = {};
+    Object.keys(optionChainData.data.oc).forEach(key => {
+      const strikeNum = parseFloat(key);
+      strikeKeyMap[strikeNum] = key;
+    });
+
+    const allStrikes = Object.keys(strikeKeyMap)
       .map((s) => parseFloat(s))
       .sort((a, b) => a - b);
 
@@ -160,20 +167,36 @@ class DhanClient {
         return;
       }
 
-      const strikeKey = strike.toFixed(6);
+      // Use the original string key from API response
+      const strikeKey = strikeKeyMap[strike];
       const originalData = optionChainData.data.oc[strikeKey];
 
-      const ceDelta = originalData.ce.greeks.delta;
-      const peDelta = originalData.pe.greeks.delta;
+      // Safety check
+      if (!originalData || !originalData.ce || !originalData.pe) {
+        console.warn(`⚠️ Missing data for strike ${strike}`);
+        return;
+      }
+
+      const ceDelta = originalData.ce.greeks?.delta;
+      const peDelta = originalData.pe.greeks?.delta;
+
+      // Skip if delta is missing
+      if (ceDelta === undefined || peDelta === undefined) {
+        return;
+      }
 
       // For CE, find closest to 0.50
       const ceDiff = Math.abs(ceDelta - 0.5);
       if (ceDiff < closestCEDiff) {
         closestCEDiff = ceDiff;
+
+        // Use top_ask_price, fallback to last_price if not available
+        const cePrice = originalData.ce.top_ask_price || originalData.ce.last_price || 0;
+
         closestCE = {
           strike: strike,
           delta: round(ceDelta),
-          top_ask_price: round(originalData.ce.top_ask_price),
+          price: round(cePrice),
         };
 
         if (securityIdMap) {
@@ -190,10 +213,14 @@ class DhanClient {
       const peDiff = Math.abs(peDelta - -0.5);
       if (peDiff < closestPEDiff) {
         closestPEDiff = peDiff;
+
+        // Use top_ask_price, fallback to last_price if not available
+        const pePrice = originalData.pe.top_ask_price || originalData.pe.last_price || 0;
+
         closestPE = {
           strike: strike,
           delta: round(peDelta),
-          top_ask_price: round(originalData.pe.top_ask_price),
+          price: round(pePrice),
         };
 
         if (securityIdMap) {

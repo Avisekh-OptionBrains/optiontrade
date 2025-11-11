@@ -62,31 +62,46 @@ router.post("/", async (req, res) => {
       console.log("\n📊 PROCESSING SUMMARY:");
       console.log("─────────────────────────────────────────────────────────────");
       console.log(`⏱️  Processing Time: ${processingTime}ms`);
-      console.log(`\n📈 Signal Details:`);
-      console.log(`   Action: ${result.signal.action.toUpperCase()}`);
-      console.log(`   Symbol: ${result.signal.symbol}`);
-      console.log(`   Entry Price: ₹${result.signal.entryPrice}`);
-      console.log(`   Stop Loss: ₹${result.signal.stopLoss}`);
-      console.log(`   Target: ₹${result.signal.target}`);
 
-      console.log(`\n📋 Orders Placed: ${result.orders.length}`);
-      result.orders.forEach((order, index) => {
-        console.log(`   ${index + 1}. ${order.action} ${order.type} Strike ${order.strike} at ₹${order.price} (Security ID: ${order.security_id})`);
-      });
+      // Only show signal details if it's an entry signal (not exit)
+      if (result.signal && result.signal.action) {
+        console.log(`\n📈 Signal Details:`);
+        console.log(`   Action: ${result.signal.action.toUpperCase()}`);
+        console.log(`   Symbol: ${result.signal.symbol}`);
+        console.log(`   Entry Price: ₹${result.signal.entryPrice}`);
+        console.log(`   Stop Loss: ₹${result.signal.stopLoss}`);
+        console.log(`   Target: ₹${result.signal.target}`);
+      } else if (result.exitType) {
+        console.log(`\n📈 Exit Signal:`);
+        console.log(`   Type: ${result.exitType}`);
+        console.log(`   Symbol: ${result.symbol || 'N/A'}`);
+        console.log(`   Exit Price: ₹${result.exitPrice || 'N/A'}`);
+      }
 
-      const successCount = result.results.filter(r => r.success).length;
-      const failCount = result.results.filter(r => !r.success).length;
+      // Only show orders if they exist
+      if (result.orders && result.orders.length > 0) {
+        console.log(`\n📋 Orders Placed: ${result.orders.length}`);
+        result.orders.forEach((order, index) => {
+          console.log(`   ${index + 1}. ${order.action} ${order.type} Strike ${order.strike} at ₹${order.price} (Security ID: ${order.security_id})`);
+        });
+      }
 
-      console.log(`\n✅ Order Results:`);
-      console.log(`   Successful: ${successCount}/${result.results.length}`);
-      console.log(`   Failed: ${failCount}/${result.results.length}`);
+      // Only show results if they exist
+      if (result.results && result.results.length > 0) {
+        const successCount = result.results.filter(r => r.success).length;
+        const failCount = result.results.filter(r => !r.success).length;
+
+        console.log(`\n✅ Order Results:`);
+        console.log(`   Successful: ${successCount}/${result.results.length}`);
+        console.log(`   Failed: ${failCount}/${result.results.length}`);
+      }
 
       if (result.trade) {
         console.log(`\n💾 Database:`);
         console.log(`   Trade ID: ${result.trade._id}`);
         console.log(`   Status: ${result.trade.status}`);
-      } else {
-        console.log(`\n💾 Database: Saved to backup JSON file`);
+      } else if (result.message) {
+        console.log(`\n💬 Message: ${result.message}`);
       }
 
       console.log("\n════════════════════════════════════════════════════════════\n");
