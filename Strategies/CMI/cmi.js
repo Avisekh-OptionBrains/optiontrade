@@ -17,8 +17,6 @@ const {
 
 const CONFIG = require("./Utils/config.js");
 
-const requestCache = new Map(); // Stores hashes of processed requests
-
 const forwardRequest = (req, webhookData, url) => {
   return new Promise((resolve, reject) => {
     try {
@@ -43,34 +41,18 @@ const forwardRequest = (req, webhookData, url) => {
 };
 
 router.post("/", async (req, res) => {
-  console.log("Route: /CMI");
-  console.log(req.body);
+  console.log("\n" + "=".repeat(80));
+  console.log("📥 CMI WEBHOOK RECEIVED");
+  console.log("=".repeat(80));
+  console.log("📋 Request Body Type:", typeof req.body);
+  console.log("📋 Request Body:", JSON.stringify(req.body, null, 2));
+  console.log("=".repeat(80));
 
   try {
     const webhookData = req.body;
 
-    // Generate a hash of the request body to identify duplicates
-    const requestHash = crypto
-      .createHash("sha256")
-      .update(JSON.stringify(webhookData))
-      .digest("hex");
-
-    // If the request was already processed within an hour, do NOT forward
-    if (requestCache.has(requestHash)) {
-      console.log(
-        "Duplicate request detected, skipping forwarding to all routes."
-      );
-      return res.status(200).json({
-        message: "Duplicate request detected. No forwarding was done.",
-      });
-    }
-
-    // Store request hash and auto-expire after 1 hour
-    requestCache.set(requestHash, Date.now());
-    setTimeout(() => requestCache.delete(requestHash), 60 * 60 * 1000); // 1 hour expiry
-
     // Forward the request to all broker routes
-    console.log("🚀 FORWARDING CMI REQUEST TO ALL BROKERS");
+    console.log("\n🚀 FORWARDING CMI REQUEST TO ALL BROKERS");
     console.log("=".repeat(60));
 
     // Define active broker routes (only include brokers that are actually being called)

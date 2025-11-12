@@ -4,6 +4,7 @@ const path = require("path");
 const axios = require("axios");
 const IIFLUser = require("../../../../models/IIFLUser");
 const { sendMessageToTelegram } = require("../../../Epicrise/Utils/utilities");
+const { getSubscribedUsers } = require("../../../../utils/subscriptionManager");
 
 /**
  * Read CSV file and create security ID map for BankNifty
@@ -120,10 +121,12 @@ const IIFL_BASE_URL = "https://api.iiflcapital.com/v1";
  * Place order for a single IIFL user for an option
  */
 async function placeOrderForUser(user, order) {
-  const { clientName, token, capital, userID } = user;
+  const { clientName, token, userID, subscription } = user;
 
   console.log(`\n📊 IIFL Client: ${clientName}`);
-  console.log(`   💰 Capital: ₹${capital.toLocaleString()}`);
+  console.log(`   � User ID: ${userID}`);
+  console.log(`   📦 Lot Size: ${subscription.lotSize} lots`);
+  console.log(`   📊 Quantity: ${subscription.quantity} qty`);
   console.log(`   🔑 Has Token: ${!!token}`);
 
   if (!token) {
@@ -131,11 +134,16 @@ async function placeOrderForUser(user, order) {
     return { success: false, error: `Missing token for ${clientName}`, clientName };
   }
 
-  try {
-    // Fixed quantity of 35 lots for BankNifty (not based on capital)
-    const quantity = 35;
+  if (!subscription || !subscription.quantity) {
+    console.error(`❌ Missing subscription or quantity for ${clientName}`);
+    return { success: false, error: `Missing subscription data for ${clientName}`, clientName };
+  }
 
-    console.log(`📈 Placing ${order.action} order for ${quantity} lots of ${order.type} Strike ${order.strike} at ₹${order.price}`);
+  try {
+    // Use quantity from subscription (calculated from lot size)
+    const quantity = subscription.quantity;
+
+    console.log(`📈 Placing ${order.action} order for ${subscription.lotSize} lots (${quantity} qty) of ${order.type} Strike ${order.strike} at ₹${order.price}`);
 
     // IIFL Order payload for options
     const orderPayload = [{
@@ -250,13 +258,13 @@ async function placeOptionOrders(signal, ceStrike, peStrike) {
     console.log(`${index + 1}. ${order.action} ${order.type} Strike ${order.strike} at ₹${order.price} (Security ID: ${order.security_id})`);
   });
 
-  // Get all IIFL users
-  console.log(`\n🔍 Fetching IIFL users...`);
-  const users = await IIFLUser.find({ state: "live" });
-  console.log(`✅ Found ${users.length} IIFL users`);
+  // Get all subscribed users for BankNifty strategy
+  console.log(`\n🔍 Fetching subscribed users for BankNifty...`);
+  const users = await getSubscribedUsers('BankNifty', signal.symbol);
+  console.log(`✅ Found ${users.length} subscribed users`);
 
   if (users.length === 0) {
-    console.log(`⚠️ No IIFL users found`);
+    console.log(`⚠️ No users subscribed to BankNifty strategy`);
     return { orders, results: [] };
   }
 
@@ -369,25 +377,19 @@ async function sendTelegramNotification(signal, orders, results) {
       return { success: false, error: "Telegram not configured" };
     }
 
-    const successful = results.filter(r => r.success).length;
-    const failed = results.filter(r => !r.success).length;
-
-    // Create formatted message
-    let message = `🎯 BB TRAP BANKNIFTY OPTION TRADE\n\n`;
+    // Create formatted message (without "BB TRAP" text)
+    let message = `🎯 BANKNIFTY OPTION TRADE\n\n`;
     message += `📊 Signal: ${signal.action.toUpperCase()} ${signal.symbol}\n`;
     message += `💰 Entry: ₹${signal.entryPrice}\n`;
     message += `🛑 Stop Loss: ₹${signal.stopLoss}\n`;
     message += `🎯 Target: ₹${signal.target}\n\n`;
-    
-    message += `📋 Orders Placed:\n`;
+
+    message += `📋 Option Trades to be Executed:\n`;
     orders.forEach((order, index) => {
       message += `${index + 1}. ${order.action} ${order.type} Strike ${order.strike} at ₹${order.price}\n`;
     });
-    
-    message += `\n✅ Successful: ${successful}\n`;
-    message += `❌ Failed: ${failed}\n`;
-    message += `📊 Total: ${results.length} orders\n\n`;
-    message += `⏰ Time: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`;
+
+    message += `\n⏰ Time: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`;
 
     console.log("\n📤 Sending Telegram notification...");
     const result = await sendMessageToTelegram(botToken, channelId, message, 0, false);
@@ -527,30 +529,69 @@ async function squareOffPositions(activeTrade, dhanClient, securityMap) {
       console.log(`   P&L: ₹${(reverseAction === 'SELL' ? currentPrice - order.price : order.price - currentPrice).toFixed(2)} per lot`);
     }
 
-    // Place square-off orders for all users
+    // Place square-off orders for all subscribed users
     console.log("\n\n============================================================");
-    console.log("📤 Placing SQUARE-OFF orders for all users...");
+    console.log("📤 Placing SQUARE-OFF orders for all subscribed users...");
     console.log("============================================================\n");
 
-    const IIFLUser = require("../../../../models/IIFLUser");
-    const users = await IIFLUser.find({ state: "live" });
-    console.log(`✅ Found ${users.length} IIFL users\n`);
+    // Get users from the original trade results (they have the exact quantities used)
+    const originalResults = activeTrade.results || [];
+    console.log(`✅ Found ${originalResults.length} original orders to square off\n`);
+
+    // Group results by user to get unique users and their quantities
+    const userOrderMap = new Map();
+    for (const result of originalResults) {
+      if (result.success && result.clientName) {
+        if (!userOrderMap.has(result.clientName)) {
+          userOrderMap.set(result.clientName, {
+            clientName: result.clientName,
+            quantity: result.quantity
+          });
+        }
+      }
+    }
+
+    // Get current user tokens
+    const users = await getSubscribedUsers('BankNifty', activeTrade.signal.symbol);
+    const userTokenMap = new Map(users.map(u => [u.clientName, u.token]));
 
     const results = [];
 
     for (const user of users) {
       console.log(`📊 IIFL Client: ${user.clientName}`);
-      console.log(`   💰 Capital: ₹${user.capital?.toLocaleString()}`);
+      console.log(`   � User ID: ${user.userID}`);
+      console.log(`   📦 Lot Size: ${user.subscription.lotSize} lots`);
+      console.log(`   📊 Quantity: ${user.subscription.quantity} qty`);
       console.log(`   🔑 Has Token: ${!!user.token}`);
 
+      // Get quantity from original trade results or calculate fallback
+      let quantity = user.subscription.quantity;
+      if (!quantity) {
+        // Fallback: find quantity from original trade results
+        const originalUserResult = originalResults.find(r => r.success && r.clientName === user.clientName);
+        if (originalUserResult && originalUserResult.quantity) {
+          quantity = originalUserResult.quantity;
+          console.log(`   ⚠️ Using quantity from original trade: ${quantity} qty`);
+        } else if (user.subscription.lotSize) {
+          // Last resort: calculate manually
+          quantity = user.subscription.lotSize * 35;
+          console.log(`   ⚠️ Calculated quantity manually: ${user.subscription.lotSize} × 35 = ${quantity} qty`);
+        }
+      }
+
+      if (!quantity) {
+        console.error(`❌ Cannot determine quantity for ${user.clientName}, skipping`);
+        continue;
+      }
+
       for (const order of squareOffOrders) {
-        console.log(`\n📈 Placing ${order.action} order for 35 lots of ${order.type} Strike ${order.strike} at ₹${order.price}`);
+        console.log(`\n📈 Placing ${order.action} order for ${quantity} qty of ${order.type} Strike ${order.strike} at ₹${order.price}`);
 
         const orderPayload = [{
           instrumentId: order.security_id,
           exchange: "NSEFO",
           transactionType: order.action,
-          quantity: "35",
+          quantity: quantity.toString(),
           orderComplexity: "REGULAR",
           product: "INTRADAY",
           orderType: "LIMIT",
@@ -638,7 +679,7 @@ async function saveTradeToDatabase(signal, orders, results) {
     // Trade is ACTIVE if strategy calculated successfully
     // Even if broker execution failed, the trade is still tracked
     const trade = new Trade({
-      strategy: "BB TRAP BANKNIFTY",
+      strategy: "BB TRAP", // Must match enum in Trade model
       signal,
       orders,
       results,

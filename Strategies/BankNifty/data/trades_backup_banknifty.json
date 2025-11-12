@@ -1,0 +1,338 @@
+[
+  {
+    "strategy": "BB TRAP BANKNIFTY",
+    "signal": {
+      "action": "buy",
+      "symbol": "BANKNIFTY",
+      "entryPrice": 51560.2,
+      "stopLoss": 51520.2,
+      "target": 51640.2
+    },
+    "orders": [
+      {
+        "type": "CE",
+        "action": "BUY",
+        "strike": 58400,
+        "delta": 0.5,
+        "price": 542.95,
+        "security_id": 50071
+      },
+      {
+        "type": "PE",
+        "action": "SELL",
+        "strike": 58400,
+        "delta": -0.5,
+        "price": 548.6,
+        "security_id": 50072
+      }
+    ],
+    "results": [
+      {
+        "success": true,
+        "data": {
+          "status": "Ok",
+          "message": "Success",
+          "result": [
+            {
+              "status": "Success",
+              "message": "Success",
+              "brokerOrderId": "251111000491414",
+              "requestTime": "11-Nov-2025 20:38:31"
+            }
+          ]
+        },
+        "clientName": "avisekh",
+        "quantity": 35,
+        "price": 542.95,
+        "order": {
+          "type": "CE",
+          "action": "BUY",
+          "strike": 58400,
+          "delta": 0.5,
+          "price": 542.95,
+          "security_id": 50071
+        }
+      },
+      {
+        "success": true,
+        "data": {
+          "status": "Ok",
+          "message": "Success",
+          "result": [
+            {
+              "status": "Success",
+              "message": "Success",
+              "brokerOrderId": "251111000491415",
+              "requestTime": "11-Nov-2025 20:38:32"
+            }
+          ]
+        },
+        "clientName": "avisekh",
+        "quantity": 35,
+        "price": 548.6,
+        "order": {
+          "type": "PE",
+          "action": "SELL",
+          "strike": 58400,
+          "delta": -0.5,
+          "price": 548.6,
+          "security_id": 50072
+        }
+      }
+    ],
+    "status": "ACTIVE",
+    "timestamp": "2025-11-11T15:08:31.516Z"
+  },
+  {
+    "strategy": "BB TRAP BANKNIFTY",
+    "signal": {
+      "action": "sell",
+      "symbol": "BANKNIFTY1!",
+      "entryPrice": 58645.6,
+      "stopLoss": 58755.6,
+      "target": 58145.6
+    },
+    "orders": [
+      {
+        "type": "CE",
+        "action": "SELL",
+        "strike": 58400,
+        "delta": 0.51,
+        "price": 558,
+        "security_id": 50071
+      },
+      {
+        "type": "PE",
+        "action": "BUY",
+        "strike": 58400,
+        "delta": -0.48,
+        "price": 454.05,
+        "security_id": 50072
+      }
+    ],
+    "results": [
+      {
+        "success": true,
+        "data": {
+          "status": "Ok",
+          "message": "Success",
+          "result": [
+            {
+              "status": "Success",
+              "message": "Success",
+              "brokerOrderId": "251112000412390",
+              "requestTime": "12-Nov-2025 17:40:28"
+            }
+          ]
+        },
+        "clientName": "avisekh",
+        "quantity": 35,
+        "price": 558,
+        "order": {
+          "type": "CE",
+          "action": "SELL",
+          "strike": 58400,
+          "delta": 0.51,
+          "price": 558,
+          "security_id": 50071
+        }
+      },
+      {
+        "success": true,
+        "data": {
+          "status": "Ok",
+          "message": "Success",
+          "result": [
+            {
+              "status": "Success",
+              "message": "Success",
+              "brokerOrderId": "251112000412391",
+              "requestTime": "12-Nov-2025 17:40:29"
+            }
+          ]
+        },
+        "clientName": "avisekh",
+        "quantity": 35,
+        "price": 454.05,
+        "order": {
+          "type": "PE",
+          "action": "BUY",
+          "strike": 58400,
+          "delta": -0.48,
+          "price": 454.05,
+          "security_id": 50072
+        }
+      }
+    ],
+    "status": "ACTIVE",
+    "timestamp": "2025-11-12T12:10:27.304Z"
+  },
+  {
+    "strategy": "BB TRAP BANKNIFTY",
+    "signal": {
+      "action": "buy",
+      "symbol": "BANKNIFTY1!",
+      "entryPrice": 58645.6,
+      "stopLoss": 58755.6,
+      "target": 58145.6
+    },
+    "orders": [
+      {
+        "type": "CE",
+        "action": "BUY",
+        "strike": 58400,
+        "delta": 0.51,
+        "price": 558,
+        "security_id": 50071
+      },
+      {
+        "type": "PE",
+        "action": "SELL",
+        "strike": 58400,
+        "delta": -0.48,
+        "price": 454.05,
+        "security_id": 50072
+      }
+    ],
+    "results": [
+      {
+        "success": true,
+        "data": {
+          "status": "Ok",
+          "message": "Success",
+          "result": [
+            {
+              "status": "Success",
+              "message": "Success",
+              "brokerOrderId": "251112000412464",
+              "requestTime": "12-Nov-2025 17:42:30"
+            }
+          ]
+        },
+        "clientName": "avisekh",
+        "quantity": 35,
+        "price": 558,
+        "order": {
+          "type": "CE",
+          "action": "BUY",
+          "strike": 58400,
+          "delta": 0.51,
+          "price": 558,
+          "security_id": 50071
+        }
+      },
+      {
+        "success": true,
+        "data": {
+          "status": "Ok",
+          "message": "Success",
+          "result": [
+            {
+              "status": "Success",
+              "message": "Success",
+              "brokerOrderId": "251112000412465",
+              "requestTime": "12-Nov-2025 17:42:31"
+            }
+          ]
+        },
+        "clientName": "avisekh",
+        "quantity": 35,
+        "price": 454.05,
+        "order": {
+          "type": "PE",
+          "action": "SELL",
+          "strike": 58400,
+          "delta": -0.48,
+          "price": 454.05,
+          "security_id": 50072
+        }
+      }
+    ],
+    "status": "ACTIVE",
+    "timestamp": "2025-11-12T12:12:29.246Z"
+  },
+  {
+    "strategy": "BB TRAP BANKNIFTY",
+    "signal": {
+      "action": "buy",
+      "symbol": "BANKNIFTY1!",
+      "entryPrice": 58645.6,
+      "stopLoss": 58755.6,
+      "target": 58145.6
+    },
+    "orders": [
+      {
+        "type": "CE",
+        "action": "BUY",
+        "strike": 58400,
+        "delta": 0.51,
+        "price": 558,
+        "security_id": 50071
+      },
+      {
+        "type": "PE",
+        "action": "SELL",
+        "strike": 58400,
+        "delta": -0.48,
+        "price": 454.05,
+        "security_id": 50072
+      }
+    ],
+    "results": [
+      {
+        "success": true,
+        "data": {
+          "status": "Ok",
+          "message": "Success",
+          "result": [
+            {
+              "status": "Success",
+              "message": "Success",
+              "brokerOrderId": "251112000412574",
+              "requestTime": "12-Nov-2025 17:44:57"
+            }
+          ]
+        },
+        "clientName": "avisekh",
+        "quantity": 35,
+        "price": 558,
+        "order": {
+          "type": "CE",
+          "action": "BUY",
+          "strike": 58400,
+          "delta": 0.51,
+          "price": 558,
+          "security_id": 50071
+        }
+      },
+      {
+        "success": true,
+        "data": {
+          "status": "Ok",
+          "message": "Success",
+          "result": [
+            {
+              "status": "Success",
+              "message": "Success",
+              "brokerOrderId": "251112000412575",
+              "requestTime": "12-Nov-2025 17:44:58"
+            }
+          ]
+        },
+        "clientName": "avisekh",
+        "quantity": 35,
+        "price": 454.05,
+        "order": {
+          "type": "PE",
+          "action": "SELL",
+          "strike": 58400,
+          "delta": -0.48,
+          "price": 454.05,
+          "security_id": 50072
+        }
+      }
+    ],
+    "status": "ACTIVE",
+    "timestamp": "2025-11-12T12:14:56.925Z"
+  }
+]

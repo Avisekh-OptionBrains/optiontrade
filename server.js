@@ -16,6 +16,7 @@ const orderResponsesRouter = require("./routes/orderResponses");
 const dashboardRouter = require("./routes/dashboard");
 const enhancedDashboardRouter = require("./routes/enhanced-dashboard");
 const usersRouter = require("./routes/users");
+const apiRouter = require("./routes/api");
 const WebSocketManager = require("./websocket-server");
 
 // const puppeteer = require("puppeteer");
@@ -1291,6 +1292,7 @@ schedule.scheduleJob("35 3 * * *", async () => {
 });
 
 // API Routes
+app.use("/api", apiRouter); // New subscription management API
 app.use("/api/order-responses", orderResponsesRouter);
 app.use("/api/dashboard", dashboardRouter);
 app.use("/api/enhanced-dashboard", enhancedDashboardRouter);
