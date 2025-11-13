@@ -49,15 +49,37 @@ function readSecurityIdMap() {
 
 /**
  * Parse BB TRAP signal
+ *
+ * Entry Signals:
+ *   1. "BB TRAP Buy <TICKER> at <PRICE> | SL: <SL_PRICE> | Target: <TARGET_PRICE>"
+ *   2. "BB TRAP Sell <TICKER> at <PRICE> | SL: <SL_PRICE> | Target: <TARGET_PRICE>"
+ *
+ * Exit Signals with Direction:
+ *   3. "BB TRAP Exit Buy <TICKER> at <EXIT_PRICE> | SL Hit"
+ *   4. "BB TRAP Exit Buy <TICKER> at <EXIT_PRICE> | Target Hit"
+ *   5. "BB TRAP Exit Buy <TICKER> at <EXIT_PRICE> | Exit"
+ *   6. "BB TRAP Exit Sell <TICKER> at <EXIT_PRICE> | SL Hit"
+ *   7. "BB TRAP Exit Sell <TICKER> at <EXIT_PRICE> | Target Hit"
+ *   8. "BB TRAP Exit Sell <TICKER> at <EXIT_PRICE> | Exit"
+ *
+ * Exit Signals without Direction:
+ *   9. "BB TRAP Exit <TICKER> at <PRICE> | Intraday Exit"
+ *   10. "BB TRAP Exit <TICKER> at <PRICE> | End of Day Exit"
+ *
  * Examples:
  *   - "BB TRAP Buy NIFTY1! at 25560.2 | SL: 25520.2 | Target: 25640.2"
- *   - "BB TRAP Exit NIFTY at 19820.5 | Intraday Exit"
- *   - "BB TRAP Exit NIFTY at 19820.5 | End of Day Exit"
- *   - "BB TRAP Exit Sell NIFTY at 19880.5 | SL Hit"
- *   - "BB TRAP Exit Sell NIFTY at 19780.5 | Target Hit"
+ *   - "BB TRAP Sell NIFTY1! at 25560.2 | SL: 25600.2 | Target: 25480.2"
+ *   - "BB TRAP Exit Buy NIFTY1! at 25520.2 | SL Hit"
+ *   - "BB TRAP Exit Buy NIFTY1! at 25640.2 | Target Hit"
+ *   - "BB TRAP Exit Buy NIFTY1! at 25590.2 | Exit"
+ *   - "BB TRAP Exit Sell NIFTY1! at 25600.2 | SL Hit"
+ *   - "BB TRAP Exit Sell NIFTY1! at 25480.2 | Target Hit"
+ *   - "BB TRAP Exit Sell NIFTY1! at 25550.2 | Exit"
+ *   - "BB TRAP Exit NIFTY1! at 25580.2 | Intraday Exit"
+ *   - "BB TRAP Exit NIFTY1! at 25580.2 | End of Day Exit"
  */
 function parseBBTrapSignal(signalText) {
-  // Try to match Exit signal with direction (Buy/Sell) - for SL Hit / Target Hit
+  // Try to match Exit signal with direction (Buy/Sell) - for SL Hit / Target Hit / Exit
   const exitWithDirectionRegex = /BB TRAP Exit (Buy|Sell) (.+?) at ([\d.]+) \| (.+)/i;
   const exitWithDirectionMatch = signalText.match(exitWithDirectionRegex);
 
@@ -67,7 +89,7 @@ function parseBBTrapSignal(signalText) {
       originalDirection: exitWithDirectionMatch[1].toLowerCase(), // "buy" or "sell"
       symbol: exitWithDirectionMatch[2].trim(), // "NIFTY" or "NIFTY1!"
       exitPrice: parseFloat(exitWithDirectionMatch[3]),
-      exitType: exitWithDirectionMatch[4].trim(), // "SL Hit" or "Target Hit"
+      exitType: exitWithDirectionMatch[4].trim(), // "SL Hit", "Target Hit", or "Exit"
     };
   }
 

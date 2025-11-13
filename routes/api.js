@@ -132,12 +132,12 @@ router.post('/iifl/test-login', async (req, res) => {
 
     const loginResult = await loginWithCredentials(userCredentials);
 
-    if (loginResult.success && loginResult.token) {
+    if (loginResult.success && loginResult.accessToken) {
       console.log(`✅ Test login successful for ${userID}`);
       res.json({
         success: true,
         message: 'Login test successful',
-        token: loginResult.token
+        token: loginResult.accessToken
       });
     } else {
       console.log(`❌ Test login failed for ${userID}: ${loginResult.error}`);

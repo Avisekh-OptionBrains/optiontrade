@@ -50,8 +50,14 @@ router.post("/", async (req, res) => {
 
     console.log(`\n📨 Message Text: "${messageText}"`);
 
-    // Check if this is a BB TRAP signal
-    if (!messageText.includes("BB TRAP")) {
+    // Check if this is a BB TRAP signal (supports multiple formats)
+    const isBBTrapSignal = messageText.includes("BB TRAP") ||
+                           messageText.includes("Bear Trap") ||
+                           messageText.includes("Bull Trap") ||
+                           messageText.includes("LONG EXIT") ||
+                           messageText.includes("SHORT EXIT");
+
+    if (!isBBTrapSignal) {
       console.log("⚠️  Not a BB TRAP signal - Ignoring");
       console.log("════════════════════════════════════════════════════════════\n");
       return res.status(400).json({

@@ -60,15 +60,85 @@ function readSecurityIdMap() {
 
 /**
  * Parse BB TRAP signal
- * Examples:
- *   - "BB TRAP Buy/Sell SYMBOL at PRICE | SL: PRICE | Target: PRICE"
+ * Entry Signals:
+ *   - NEW FORMAT: "BANKNIFTY | Bear Trap | Entry at 51590.5 | SL: 51550.5 | Target: 51650.5"
+ *   - NEW FORMAT: "BANKNIFTY | Bull Trap | Entry at 51590.5 | SL: 51630.5 | Target: 51510.5"
+ *   - OLD FORMAT: "BB TRAP Buy/Sell SYMBOL at PRICE | SL: PRICE | Target: PRICE"
+ *
+ * Exit Signals (NEW FORMAT):
+ *   - "BB TRAP LONG EXIT (SL HIT) BANKNIFTY at 51550.5"
+ *   - "BB TRAP LONG EXIT (TARGET HIT) BANKNIFTY at 51650.5"
+ *   - "BB TRAP LONG EXIT (3PM EXIT) BANKNIFTY at 51590.5"
+ *   - "BB TRAP SHORT EXIT (SL HIT) BANKNIFTY at 51630.5"
+ *   - "BB TRAP SHORT EXIT (TARGET HIT) BANKNIFTY at 51510.5"
+ *   - "BB TRAP SHORT EXIT (3PM EXIT) BANKNIFTY at 51590.5"
+ *
+ * Exit Signals (OLD FORMAT):
  *   - "BB TRAP Exit BANKNIFTY at 51590.5 | Intraday Exit"
  *   - "BB TRAP Exit BANKNIFTY at 51590.5 | End of Day Exit"
  *   - "BB TRAP Exit Sell BANKNIFTY at 51880.5 | SL Hit"
  *   - "BB TRAP Exit Sell BANKNIFTY at 51780.5 | Target Hit"
  */
 function parseBBTrapSignal(messageText) {
-  // Try to match Exit signal with direction (Buy/Sell) - for SL Hit / Target Hit
+  // Try to match NEW FORMAT: "<TICKER> | Bear Trap | Entry at <ENTRY> | SL: <SL> | Target: <TARGET>"
+  const bearTrapRegex = /(.+?)\s*\|\s*Bear Trap\s*\|\s*Entry at\s*([\d.]+)\s*\|\s*SL:\s*([\d.]+)\s*\|\s*Target:\s*([\d.]+)/i;
+  const bearTrapMatch = messageText.match(bearTrapRegex);
+
+  if (bearTrapMatch) {
+    return {
+      action: 'buy', // Bear Trap = BUY signal
+      symbol: bearTrapMatch[1].trim(), // "BANKNIFTY"
+      entryPrice: parseFloat(bearTrapMatch[2]),
+      stopLoss: parseFloat(bearTrapMatch[3]),
+      target: parseFloat(bearTrapMatch[4]),
+    };
+  }
+
+  // Try to match NEW FORMAT: "<TICKER> | Bull Trap | Entry at <ENTRY> | SL: <SL> | Target: <TARGET>"
+  const bullTrapRegex = /(.+?)\s*\|\s*Bull Trap\s*\|\s*Entry at\s*([\d.]+)\s*\|\s*SL:\s*([\d.]+)\s*\|\s*Target:\s*([\d.]+)/i;
+  const bullTrapMatch = messageText.match(bullTrapRegex);
+
+  if (bullTrapMatch) {
+    return {
+      action: 'sell', // Bull Trap = SELL signal
+      symbol: bullTrapMatch[1].trim(), // "BANKNIFTY"
+      entryPrice: parseFloat(bullTrapMatch[2]),
+      stopLoss: parseFloat(bullTrapMatch[3]),
+      target: parseFloat(bullTrapMatch[4]),
+    };
+  }
+
+  // Try to match NEW EXIT FORMAT: "BB TRAP LONG EXIT (SL HIT) <TICKER> at <PRICE>"
+  const longExitRegex = /BB TRAP LONG EXIT \((.+?)\)\s+(.+?)\s+at\s+([\d.]+)/i;
+  const longExitMatch = messageText.match(longExitRegex);
+
+  if (longExitMatch) {
+    const exitReason = longExitMatch[1].trim(); // "SL HIT", "TARGET HIT", or "3PM EXIT"
+    return {
+      action: 'exit',
+      originalDirection: 'buy', // LONG = buy position
+      symbol: longExitMatch[2].trim(), // "BANKNIFTY"
+      exitPrice: parseFloat(longExitMatch[3]),
+      exitType: exitReason, // "SL HIT", "TARGET HIT", or "3PM EXIT"
+    };
+  }
+
+  // Try to match NEW EXIT FORMAT: "BB TRAP SHORT EXIT (SL HIT) <TICKER> at <PRICE>"
+  const shortExitRegex = /BB TRAP SHORT EXIT \((.+?)\)\s+(.+?)\s+at\s+([\d.]+)/i;
+  const shortExitMatch = messageText.match(shortExitRegex);
+
+  if (shortExitMatch) {
+    const exitReason = shortExitMatch[1].trim(); // "SL HIT", "TARGET HIT", or "3PM EXIT"
+    return {
+      action: 'exit',
+      originalDirection: 'sell', // SHORT = sell position
+      symbol: shortExitMatch[2].trim(), // "BANKNIFTY"
+      exitPrice: parseFloat(shortExitMatch[3]),
+      exitType: exitReason, // "SL HIT", "TARGET HIT", or "3PM EXIT"
+    };
+  }
+
+  // Try to match OLD EXIT FORMAT with direction (Buy/Sell) - for SL Hit / Target Hit
   const exitWithDirectionRegex = /BB TRAP Exit (Buy|Sell) (.+?) at ([\d.]+) \| (.+)/i;
   const exitWithDirectionMatch = messageText.match(exitWithDirectionRegex);
 
@@ -82,7 +152,7 @@ function parseBBTrapSignal(messageText) {
     };
   }
 
-  // Try to match Exit signal without direction - for Intraday/End of Day
+  // Try to match OLD EXIT FORMAT without direction - for Intraday/End of Day
   const exitRegex = /BB TRAP Exit (.+?) at ([\d.]+) \| (.+)/i;
   const exitMatch = messageText.match(exitRegex);
 
@@ -95,7 +165,7 @@ function parseBBTrapSignal(messageText) {
     };
   }
 
-  // Try to match Buy/Sell signal
+  // Try to match OLD FORMAT: "BB TRAP Buy/Sell SYMBOL at PRICE | SL: PRICE | Target: PRICE"
   const regex = /BB TRAP (Buy|Sell) (.+?) at ([\d.]+) \| SL: ([\d.]+) \| Target: ([\d.]+)/i;
   const match = messageText.match(regex);
 
