@@ -344,42 +344,59 @@ function convertToCSV(data) {
 // Orders endpoint for orders management section
 router.get('/orders', async (req, res) => {
     try {
-        const { broker, status, startDate, endDate, page = 1, limit = 50 } = req.query;
-        const query = {};
+        const { broker, status, startDate, endDate, page = 1, limit = 50, clientName, symbol } = req.query;
 
-        if (broker) query.broker = broker.toUpperCase();
-        if (status) query.status = status.toUpperCase();
-
-        // Date filtering
+        // Build date filter
+        let dateFilter = {};
         if (startDate && endDate) {
-            query.timestamp = {
-                $gte: new Date(startDate),
-                $lte: new Date(endDate)
-            };
-        } else {
-            // Default to today's orders
-            const startOfDay = new Date();
-            startOfDay.setHours(0, 0, 0, 0);
-            const endOfDay = new Date();
-            endOfDay.setHours(23, 59, 59, 999);
-
-            query.timestamp = {
-                $gte: startOfDay,
-                $lte: endOfDay
+            const start = new Date(startDate);
+            start.setHours(0, 0, 0, 0);
+            const end = new Date(endDate);
+            end.setHours(23, 59, 59, 999);
+            dateFilter = {
+                $gte: start,
+                $lte: end
             };
         }
 
-        const skip = (page - 1) * limit;
-        const orders = await OrderResponse.find(query)
+        // Query OrderResponse collection
+        const orderResponseQuery = {};
+        if (broker) orderResponseQuery.broker = broker.toUpperCase();
+        if (status) orderResponseQuery.status = status.toUpperCase();
+        if (clientName) orderResponseQuery.clientName = new RegExp(clientName, 'i');
+        if (symbol) orderResponseQuery.symbol = new RegExp(symbol, 'i');
+        if (Object.keys(dateFilter).length > 0) {
+            orderResponseQuery.timestamp = dateFilter;
+        }
+
+        // Fetch from OrderResponse collection only
+        const orderResponses = await OrderResponse.find(orderResponseQuery)
             .sort({ timestamp: -1 })
-            .skip(skip)
-            .limit(parseInt(limit))
             .lean();
 
-        const total = await OrderResponse.countDocuments(query);
+        // Transform OrderResponse records
+        const allOrders = orderResponses.map(order => ({
+            _id: order._id,
+            timestamp: order.timestamp,
+            clientName: order.clientName,
+            broker: order.broker,
+            symbol: order.symbol,
+            transactionType: order.transactionType,
+            orderType: order.orderType,
+            quantity: order.quantity,
+            price: order.price,
+            status: order.status,
+            orderId: order.orderId,
+            message: order.message
+        }));
+
+        // Apply pagination
+        const skip = (page - 1) * limit;
+        const paginatedOrders = allOrders.slice(skip, skip + parseInt(limit));
+        const total = allOrders.length;
 
         res.json({
-            orders,
+            orders: paginatedOrders,
             pagination: {
                 total,
                 page: parseInt(page),

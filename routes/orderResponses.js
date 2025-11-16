@@ -5,47 +5,47 @@ const OrderResponse = require('../models/OrderResponse');
 // Get all order responses with pagination
 router.get('/', async (req, res) => {
     try {
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 50;
-        const skip = (page - 1) * limit;
-
-        // Build query filters
-        const query = {};
-        if (req.query.broker) {
-            query.broker = req.query.broker.toUpperCase();
-        }
-        if (req.query.status) {
-            query.status = req.query.status.toUpperCase();
-        }
-        if (req.query.clientName) {
-            query.clientName = new RegExp(req.query.clientName, 'i');
-        }
-        if (req.query.symbol) {
-            query.symbol = new RegExp(req.query.symbol, 'i');
-        }
+        // Build date filter
+        let dateFilter = {};
         if (req.query.startDate && req.query.endDate) {
-            query.timestamp = {
-                $gte: new Date(req.query.startDate),
-                $lte: new Date(req.query.endDate)
+            const start = new Date(req.query.startDate);
+            start.setHours(0, 0, 0, 0);
+            const end = new Date(req.query.endDate);
+            end.setHours(23, 59, 59, 999);
+            dateFilter = {
+                $gte: start,
+                $lte: end
             };
         }
 
-        const orderResponses = await OrderResponse.find(query)
-            .sort({ timestamp: -1 })
-            .skip(skip)
-            .limit(limit);
+        // Build query filters for OrderResponse
+        const orderQuery = {};
+        if (req.query.broker) {
+            orderQuery.broker = req.query.broker.toUpperCase();
+        }
+        if (req.query.status) {
+            orderQuery.status = req.query.status.toUpperCase();
+        }
+        if (req.query.clientName) {
+            orderQuery.clientName = new RegExp(req.query.clientName, 'i');
+        }
+        if (req.query.symbol) {
+            orderQuery.symbol = new RegExp(req.query.symbol, 'i');
+        }
+        if (Object.keys(dateFilter).length > 0) {
+            orderQuery.timestamp = dateFilter;
+        }
 
-        const total = await OrderResponse.countDocuments(query);
+        // Fetch from OrderResponse collection only
+        const orderResponses = await OrderResponse.find(orderQuery)
+            .sort({ timestamp: -1 })
+            .lean();
 
         res.json({
             success: true,
-            data: orderResponses,
-            pagination: {
-                total,
-                page,
-                pages: Math.ceil(total / limit),
-                limit
-            }
+            orders: orderResponses,
+            data: orderResponses, // For backward compatibility
+            total: orderResponses.length
         });
     } catch (error) {
         console.error('Error fetching order responses:', error);

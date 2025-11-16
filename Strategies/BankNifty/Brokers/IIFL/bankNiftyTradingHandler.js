@@ -249,8 +249,50 @@ async function placeOrderForUser(user, order) {
 
     console.log(`✅ Order placed for ${clientName}:`, JSON.stringify(response.data, null, 2));
 
+    // Save order response to database
+    try {
+      const OrderResponse = require('../../../../models/OrderResponse');
+
+      // Extract order ID from response (IIFL returns array of order responses)
+      let orderIdValue = null;
+      let uniqueOrderIdValue = null;
+      let statusValue = "SUCCESS"; // If we reach here, API call was successful
+
+      if (response.data && Array.isArray(response.data) && response.data.length > 0) {
+        const firstOrder = response.data[0];
+        orderIdValue = firstOrder.orderId || firstOrder.OrderId || firstOrder.order_id || null;
+        uniqueOrderIdValue = firstOrder.uniqueOrderId || firstOrder.UniqueOrderId || firstOrder.unique_order_id || null;
+
+        // Check if order was rejected by exchange
+        if (firstOrder.status === 'REJECTED' || firstOrder.Status === 'REJECTED') {
+          statusValue = "FAILED";
+        }
+      }
+
+      const orderResponse = new OrderResponse({
+        clientName: clientName,
+        broker: "IIFL",
+        symbol: `BANKNIFTY ${order.type} ${order.strike}`,
+        transactionType: order.action.toUpperCase(),
+        orderType: "LIMIT",
+        price: order.price,
+        quantity: quantity,
+        status: statusValue,
+        orderId: orderIdValue,
+        uniqueOrderId: uniqueOrderIdValue,
+        message: `BB TRAP BankNifty ${order.action} ${order.type} ${order.strike}`,
+        response: response.data,
+        timestamp: new Date()
+      });
+
+      await orderResponse.save();
+      console.log(`💾 Order response saved to database for ${clientName} - Status: ${statusValue}`);
+    } catch (dbError) {
+      console.error(`❌ Error saving order response to database for ${clientName}:`, dbError.message);
+    }
+
     // No stop-loss orders - only primary orders
-    
+
     return {
       success: true,
       data: response.data,
@@ -262,6 +304,30 @@ async function placeOrderForUser(user, order) {
 
   } catch (error) {
     console.error(`❌ Error placing order for ${clientName}:`, error.response?.data || error.message);
+
+    // Save failed order response to database
+    try {
+      const OrderResponse = require('../../../../models/OrderResponse');
+      const failedOrderResponse = new OrderResponse({
+        clientName: clientName,
+        broker: "IIFL",
+        symbol: `BANKNIFTY ${order.type} ${order.strike}`,
+        transactionType: order.action.toUpperCase(),
+        orderType: "LIMIT",
+        price: order.price,
+        quantity: subscription.quantity,
+        status: "FAILED",
+        message: `BB TRAP BankNifty ${order.action} ${order.type} ${order.strike} - FAILED`,
+        response: { error: error.response?.data || error.message },
+        timestamp: new Date()
+      });
+
+      await failedOrderResponse.save();
+      console.log(`💾 Failed order response saved to database for ${clientName}`);
+    } catch (dbError) {
+      console.error(`❌ Error saving failed order response to database for ${clientName}:`, dbError.message);
+    }
+
     return {
       success: false,
       error: error.response?.data || error.message,
@@ -688,6 +754,49 @@ async function squareOffPositions(activeTrade, dhanClient, securityMap) {
           );
 
           console.log(`✅ Square-off order placed successfully for ${user.clientName}`);
+
+          // Save square-off order response to database
+          try {
+            const OrderResponse = require('../../../../models/OrderResponse');
+
+            // Extract order ID from response
+            let orderIdValue = null;
+            let uniqueOrderIdValue = null;
+            let statusValue = "SUCCESS"; // If we reach here, API call was successful
+
+            if (response.data && Array.isArray(response.data) && response.data.length > 0) {
+              const firstOrder = response.data[0];
+              orderIdValue = firstOrder.orderId || firstOrder.OrderId || firstOrder.order_id || null;
+              uniqueOrderIdValue = firstOrder.uniqueOrderId || firstOrder.UniqueOrderId || firstOrder.unique_order_id || null;
+
+              // Check if order was rejected by exchange
+              if (firstOrder.status === 'REJECTED' || firstOrder.Status === 'REJECTED') {
+                statusValue = "FAILED";
+              }
+            }
+
+            const orderResponse = new OrderResponse({
+              clientName: user.clientName,
+              broker: "IIFL",
+              symbol: `BANKNIFTY ${order.type} ${order.strike}`,
+              transactionType: order.action,
+              orderType: "LIMIT",
+              price: order.price,
+              quantity: quantity,
+              status: statusValue,
+              orderId: orderIdValue,
+              uniqueOrderId: uniqueOrderIdValue,
+              message: `BB TRAP BankNifty SQUARE-OFF ${order.action} ${order.type} ${order.strike}`,
+              response: response.data,
+              timestamp: new Date()
+            });
+
+            await orderResponse.save();
+            console.log(`💾 Square-off order response saved to database for ${user.clientName} - Status: ${statusValue}`);
+          } catch (dbError) {
+            console.error(`❌ Error saving square-off order response to database for ${user.clientName}:`, dbError.message);
+          }
+
           results.push({
             success: true,
             user: user.clientName,
@@ -696,6 +805,30 @@ async function squareOffPositions(activeTrade, dhanClient, securityMap) {
           });
         } catch (error) {
           console.error(`❌ Error placing square-off order for ${user.clientName}:`, error.response?.data || error.message);
+
+          // Save failed square-off order response to database
+          try {
+            const OrderResponse = require('../../../../models/OrderResponse');
+            const failedOrderResponse = new OrderResponse({
+              clientName: user.clientName,
+              broker: "IIFL",
+              symbol: `BANKNIFTY ${order.type} ${order.strike}`,
+              transactionType: order.action,
+              orderType: "LIMIT",
+              price: order.price,
+              quantity: quantity,
+              status: "FAILED",
+              message: `BB TRAP BankNifty SQUARE-OFF ${order.action} ${order.type} ${order.strike} - FAILED`,
+              response: { error: error.response?.data || error.message },
+              timestamp: new Date()
+            });
+
+            await failedOrderResponse.save();
+            console.log(`💾 Failed square-off order response saved to database for ${user.clientName}`);
+          } catch (dbError) {
+            console.error(`❌ Error saving failed square-off order response to database for ${user.clientName}:`, dbError.message);
+          }
+
           results.push({
             success: false,
             user: user.clientName,

@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orders - Epicrise Trading Platform</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="dashboard-styles.css">
+    <style>
+        .orders-container {
+            padding: 20px;
+            max-width: 100%;
+        }
+        
+        .filters-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .orders-table-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .table-responsive {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        
+        .status-badge {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-failed {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .broker-badge {
+            padding: 4px 10px;
+            border-radius: 15px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .stat-box h3 {
+            margin: 0;
+            font-size: 32px;
+            font-weight: bold;
+        }
+        
+        .stat-box p {
+            margin: 5px 0 0 0;
+            opacity: 0.9;
+        }
+        
+        .pagination-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 20px;
+        }
+        
+        .loading-spinner {
+            text-align: center;
+            padding: 40px;
+        }
+        
+        .export-btn {
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h3><i class="fas fa-chart-line"></i> Epicrise</h3>
+            <p>Trading Platform</p>
+        </div>
+        <nav class="nav-menu">
+            <div class="nav-item">
+                <a href="/" class="nav-link">
+                    <i class="fas fa-home"></i>
+                    <span>Dashboard</span>
+                </a>
+            </div>
+            <div class="nav-item">
+                <a href="/orders.html" class="nav-link active">
+                    <i class="fas fa-list"></i>
+                    <span>Orders</span>
+                </a>
+            </div>
+            <div class="nav-item">
+                <a href="/subscription-manager.html" class="nav-link">
+                    <i class="fas fa-users"></i>
+                    <span>Subscriptions</span>
+                </a>
+            </div>
+            <div class="nav-item">
+                <a href="/enhanced-dashboard.html" class="nav-link">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>Analytics</span>
+                </a>
+            </div>
+        </nav>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="orders-container">
+            <!-- Page Header -->
+            <div class="page-header mb-4">
+                <h1><i class="fas fa-list"></i> Orders Management</h1>
+                <p>View and manage all trading orders</p>
+            </div>
+
+            <!-- Statistics -->
+            <div class="stats-row" id="stats-row">
+                <div class="stat-box" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                    <h3 id="total-orders">0</h3>
+                    <p>Total Orders</p>
+                </div>
+                <div class="stat-box" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                    <h3 id="success-orders">0</h3>
+                    <p>Successful</p>
+                </div>
+                <div class="stat-box" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                    <h3 id="failed-orders">0</h3>
+                    <p>Failed</p>
+                </div>
+                <div class="stat-box" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+                    <h3 id="pending-orders">0</h3>
+                    <p>Pending</p>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="filters-card">
+                <h5 class="mb-3"><i class="fas fa-filter"></i> Filters</h5>
+
+                <!-- Quick Date Range Buttons -->
+                <div class="mb-3">
+                    <label class="form-label">Quick Date Range:</label>
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="setDateRange('today')">Today</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="setDateRange('yesterday')">Yesterday</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="setDateRange('week')">Last 7 Days</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="setDateRange('month')">Last 30 Days</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="setDateRange('all')">All Time</button>
+                    </div>
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label">Broker</label>
+                        <select class="form-select" id="filter-broker">
+                            <option value="">All Brokers</option>
+                            <option value="IIFL">IIFL</option>
+                            <option value="ANGEL">Angel</option>
+                            <option value="MOTILAL">Motilal</option>
+                            <option value="DHAN">Dhan</option>
+                            <option value="SHAREKHAN">ShareKhan</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Status</label>
+                        <select class="form-select" id="filter-status">
+                            <option value="">All Status</option>
+                            <option value="SUCCESS">Success</option>
+                            <option value="FAILED">Failed</option>
+                            <option value="PENDING">Pending</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Start Date</label>
+                        <input type="date" class="form-control" id="filter-start-date">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">End Date</label>
+                        <input type="date" class="form-control" id="filter-end-date">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Client Name</label>
+                        <input type="text" class="form-control" id="filter-client" placeholder="Search client...">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Symbol</label>
+                        <input type="text" class="form-control" id="filter-symbol" placeholder="Search symbol...">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">&nbsp;</label>
+                        <div>
+                            <button class="btn btn-primary" onclick="applyFilters()">
+                                <i class="fas fa-search"></i> Apply Filters
+                            </button>
+                            <button class="btn btn-secondary" onclick="resetFilters()">
+                                <i class="fas fa-redo"></i> Reset
+                            </button>
+                            <button class="btn btn-success export-btn" onclick="exportOrders()">
+                                <i class="fas fa-download"></i> Export CSV
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Orders Table -->
+            <div class="orders-table-card">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5><i class="fas fa-table"></i> Orders List</h5>
+                    <button class="btn btn-sm btn-outline-primary" onclick="refreshOrders()">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                    </button>
+                </div>
+
+                <div id="loading-spinner" class="loading-spinner" style="display: none;">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Loading orders...</p>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Time</th>
+                                <th>Client</th>
+                                <th>Broker</th>
+                                <th>Symbol</th>
+                                <th>Type</th>
+                                <th>Order Type</th>
+                                <th>Quantity</th>
+                                <th>Price</th>
+                                <th>Status</th>
+                                <th>Order ID</th>
+                                <th>Message</th>
+                            </tr>
+                        </thead>
+                        <tbody id="orders-tbody">
+                            <!-- Orders will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                <div class="pagination-controls">
+                    <div>
+                        <span id="pagination-info">Showing 0 of 0 orders</span>
+                    </div>
+                    <div>
+                        <button class="btn btn-sm btn-outline-primary" id="prev-btn" onclick="previousPage()" disabled>
+                            <i class="fas fa-chevron-left"></i> Previous
+                        </button>
+                        <span class="mx-2" id="page-info">Page 1</span>
+                        <button class="btn btn-sm btn-outline-primary" id="next-btn" onclick="nextPage()">
+                            Next <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="orders.js"></script>
+</body>
+</html>
+
