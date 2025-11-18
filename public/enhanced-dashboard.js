@@ -55,7 +55,7 @@ class EpicriseDashboard {
             console.log('Loading dashboard data...');
             this.showLoading();
 
-            const response = await fetch('/api/enhanced-dashboard/data');
+            const response = await AUTH_HELPER.authenticatedFetch('/api/enhanced-dashboard/data');
             console.log('Dashboard API response status:', response.status);
 
             if (!response.ok) {
@@ -538,7 +538,7 @@ function testMessage() {
 }
 
 function loadMessagesData() {
-    fetch('/api/enhanced-dashboard/messages/stats')
+    AUTH_HELPER.authenticatedFetch('/api/enhanced-dashboard/messages/stats')
         .then(response => response.json())
         .then(data => {
             document.getElementById('totalMessagesCount').textContent = data.total || 0;
@@ -580,7 +580,7 @@ function displayMessagesTable(messages) {
 
 // Clients Functions
 function loadClientsData() {
-    fetch('/api/enhanced-dashboard/clients/stats')
+    AUTH_HELPER.authenticatedFetch('/api/enhanced-dashboard/clients/stats')
         .then(response => response.json())
         .then(data => {
             document.getElementById('clientsTotal').textContent = data.total || 0;
@@ -590,7 +590,7 @@ function loadClientsData() {
         })
         .catch(error => console.error('Error loading client stats:', error));
 
-    fetch('/api/enhanced-dashboard/clients/recent')
+    AUTH_HELPER.authenticatedFetch('/api/enhanced-dashboard/clients/recent')
         .then(response => response.json())
         .then(data => {
             displayClientsTable(data);

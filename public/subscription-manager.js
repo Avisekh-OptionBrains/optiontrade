@@ -45,7 +45,7 @@ async function loadTabData(tabName) {
 // Load all IIFL users
 async function loadUsers() {
     try {
-        const response = await fetch(`${API_BASE}/api/users/iifl`);
+        const response = await AUTH_HELPER.authenticatedFetch(`${API_BASE}/api/users/iifl`);
         const users = await response.json();
         
         document.getElementById('users-loading').style.display = 'none';
@@ -111,9 +111,9 @@ async function loadUsers() {
 // Load subscriptions for a strategy
 async function loadSubscriptions(strategy) {
     const strategyLower = strategy.toLowerCase();
-    
+
     try {
-        const response = await fetch(`${API_BASE}/api/subscriptions/${strategyLower}`);
+        const response = await AUTH_HELPER.authenticatedFetch(`${API_BASE}/api/subscriptions/${strategyLower}`);
         const subscriptions = await response.json();
         
         document.getElementById(`${strategyLower}-loading`).style.display = 'none';
@@ -195,7 +195,7 @@ async function toggleUserState(userID, currentState) {
     }
 
     try {
-        const response = await fetch(`${API_BASE}/api/users/iifl/${userID}/state`, {
+        const response = await AUTH_HELPER.authenticatedFetch(`${API_BASE}/api/users/iifl/${userID}/state`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ state: newState })
@@ -220,7 +220,7 @@ async function deleteUser(userID) {
     }
 
     try {
-        const response = await fetch(`${API_BASE}/api/users/iifl/${userID}`, {
+        const response = await AUTH_HELPER.authenticatedFetch(`${API_BASE}/api/users/iifl/${userID}`, {
             method: 'DELETE'
         });
 
@@ -268,7 +268,7 @@ async function viewSubscriptions(userID) {
         console.log('Loading subscriptions for user:', userID);
 
         const [epicrise, optiontrade, banknifty] = await Promise.all([
-            fetch(`${API_BASE}/api/subscriptions/epicrise/${userID}`)
+            AUTH_HELPER.authenticatedFetch(`${API_BASE}/api/subscriptions/epicrise/${userID}`)
                 .then(r => {
                     console.log('Epicrise response:', r.status);
                     return r.ok ? r.json() : null;
@@ -277,7 +277,7 @@ async function viewSubscriptions(userID) {
                     console.error('Epicrise error:', err);
                     return null;
                 }),
-            fetch(`${API_BASE}/api/subscriptions/optiontrade/${userID}`)
+            AUTH_HELPER.authenticatedFetch(`${API_BASE}/api/subscriptions/optiontrade/${userID}`)
                 .then(r => {
                     console.log('OptionTrade response:', r.status);
                     return r.ok ? r.json() : null;
@@ -286,7 +286,7 @@ async function viewSubscriptions(userID) {
                     console.error('OptionTrade error:', err);
                     return null;
                 }),
-            fetch(`${API_BASE}/api/subscriptions/banknifty/${userID}`)
+            AUTH_HELPER.authenticatedFetch(`${API_BASE}/api/subscriptions/banknifty/${userID}`)
                 .then(r => {
                     console.log('BankNifty response:', r.status);
                     return r.ok ? r.json() : null;
@@ -385,7 +385,7 @@ async function toggleSubscription(strategy, userID, currentEnabled) {
     const strategyLower = strategy.toLowerCase();
 
     try {
-        const response = await fetch(`${API_BASE}/api/subscriptions/${strategyLower}/${userID}`, {
+        const response = await AUTH_HELPER.authenticatedFetch(`${API_BASE}/api/subscriptions/${strategyLower}/${userID}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ enabled: newEnabled })
@@ -408,7 +408,7 @@ async function showAddSubscription(strategy, userID = null) {
     const strategyLower = strategy.toLowerCase().replace(' ', '');
 
     // Get all users for dropdown
-    const response = await fetch(`${API_BASE}/api/users/iifl`);
+    const response = await AUTH_HELPER.authenticatedFetch(`${API_BASE}/api/users/iifl`);
     const users = await response.json();
 
     if (users.length === 0) {
@@ -499,7 +499,7 @@ async function submitAddSubscription(strategy) {
     }
 
     try {
-        const response = await fetch(`${API_BASE}/api/subscriptions/${strategy}`, {
+        const response = await AUTH_HELPER.authenticatedFetch(`${API_BASE}/api/subscriptions/${strategy}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
@@ -531,7 +531,7 @@ async function editSubscription(strategy, userID) {
     const strategyLower = strategy.toLowerCase().replace(' ', '');
 
     // Fetch existing subscription
-    const response = await fetch(`${API_BASE}/api/subscriptions/${strategyLower}/${userID}`);
+    const response = await AUTH_HELPER.authenticatedFetch(`${API_BASE}/api/subscriptions/${strategyLower}/${userID}`);
     const subscription = await response.json();
 
     if (!subscription) {
@@ -609,7 +609,7 @@ async function submitEditSubscription(strategy, userID) {
     }
 
     try {
-        const response = await fetch(`${API_BASE}/api/subscriptions/${strategy}/${userID}`, {
+        const response = await AUTH_HELPER.authenticatedFetch(`${API_BASE}/api/subscriptions/${strategy}/${userID}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
@@ -637,7 +637,7 @@ async function deleteSubscription(strategy, userID) {
     const strategyLower = strategy.toLowerCase();
 
     try {
-        const response = await fetch(`${API_BASE}/api/subscriptions/${strategyLower}/${userID}`, {
+        const response = await AUTH_HELPER.authenticatedFetch(`${API_BASE}/api/subscriptions/${strategyLower}/${userID}`, {
             method: 'DELETE'
         });
 
@@ -712,7 +712,7 @@ document.addEventListener('DOMContentLoaded', () => {
             resultDiv.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Testing login credentials...';
 
             try {
-                const response = await fetch(`${API_BASE}/api/iifl/test-login`, {
+                const response = await AUTH_HELPER.authenticatedFetch(`${API_BASE}/api/iifl/test-login`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(userData)
@@ -778,7 +778,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            const response = await fetch(`${API_BASE}/api/iifl/add-user`, {
+            const response = await AUTH_HELPER.authenticatedFetch(`${API_BASE}/api/iifl/add-user`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(userData)

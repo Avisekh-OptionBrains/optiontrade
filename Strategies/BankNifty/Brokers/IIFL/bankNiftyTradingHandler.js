@@ -59,127 +59,145 @@ function readSecurityIdMap() {
 }
 
 /**
- * Parse BB TRAP signal
- * Entry Signals:
- *   - NEW FORMAT: "BANKNIFTY | Bear Trap | Entry at 51590.5 | SL: 51550.5 | Target: 51650.5"
- *   - NEW FORMAT: "BANKNIFTY | Bull Trap | Entry at 51590.5 | SL: 51630.5 | Target: 51510.5"
- *   - OLD FORMAT: "BB TRAP Buy/Sell SYMBOL at PRICE | SL: PRICE | Target: PRICE"
+ * Parse BB TRAP signal from Pine Script alerts
  *
- * Exit Signals (NEW FORMAT):
+ * PRIMARY FORMAT (Pine Script - Brain Wave Bank Nifty Strategy):
+ *   Entry:
+ *     - "BB TRAP Buy BANKNIFTY at 51590.5 | SL: 51550.5 | Target: 51650.5"
+ *     - "BB TRAP Sell BANKNIFTY at 51590.5 | SL: 51630.5 | Target: 51510.5"
+ *   Exit:
+ *     - "BB TRAP Exit Long BANKNIFTY at 51550.5"
+ *     - "BB TRAP Exit Short BANKNIFTY at 51630.5"
+ *
+ * LEGACY FORMATS (Still supported):
+ *   - "BANKNIFTY | Bear Trap | Entry at 51590.5 | SL: 51550.5 | Target: 51650.5"
+ *   - "BANKNIFTY | Bull Trap | Entry at 51590.5 | SL: 51630.5 | Target: 51510.5"
  *   - "BB TRAP LONG EXIT (SL HIT) BANKNIFTY at 51550.5"
- *   - "BB TRAP LONG EXIT (TARGET HIT) BANKNIFTY at 51650.5"
- *   - "BB TRAP LONG EXIT (3PM EXIT) BANKNIFTY at 51590.5"
  *   - "BB TRAP SHORT EXIT (SL HIT) BANKNIFTY at 51630.5"
- *   - "BB TRAP SHORT EXIT (TARGET HIT) BANKNIFTY at 51510.5"
- *   - "BB TRAP SHORT EXIT (3PM EXIT) BANKNIFTY at 51590.5"
- *
- * Exit Signals (OLD FORMAT):
  *   - "BB TRAP Exit BANKNIFTY at 51590.5 | Intraday Exit"
- *   - "BB TRAP Exit BANKNIFTY at 51590.5 | End of Day Exit"
- *   - "BB TRAP Exit Sell BANKNIFTY at 51880.5 | SL Hit"
- *   - "BB TRAP Exit Sell BANKNIFTY at 51780.5 | Target Hit"
  */
 function parseBBTrapSignal(messageText) {
-  // Try to match NEW FORMAT: "<TICKER> | Bear Trap | Entry at <ENTRY> | SL: <SL> | Target: <TARGET>"
+  // ========================================
+  // PINE SCRIPT FORMATS (Priority)
+  // ========================================
+
+  // 1. Pine Script Entry: "BB TRAP Buy/Sell SYMBOL at PRICE | SL: PRICE | Target: PRICE"
+  const pineEntryRegex = /BB TRAP (Buy|Sell) (.+?) at ([\d.]+) \| SL: ([\d.]+) \| Target: ([\d.]+)/i;
+  const pineEntryMatch = messageText.match(pineEntryRegex);
+
+  if (pineEntryMatch) {
+    return {
+      action: pineEntryMatch[1].toLowerCase(), // "buy" or "sell"
+      symbol: pineEntryMatch[2].trim(), // "BANKNIFTY"
+      entryPrice: parseFloat(pineEntryMatch[3]),
+      stopLoss: parseFloat(pineEntryMatch[4]),
+      target: parseFloat(pineEntryMatch[5]),
+    };
+  }
+
+  // 2. Pine Script Exit: "BB TRAP Exit Long/Short SYMBOL at PRICE"
+  const pineExitRegex = /BB TRAP Exit (Long|Short) (.+?) at ([\d.]+)/i;
+  const pineExitMatch = messageText.match(pineExitRegex);
+
+  if (pineExitMatch) {
+    const direction = pineExitMatch[1].toLowerCase(); // "long" or "short"
+    return {
+      action: 'exit',
+      originalDirection: direction === 'long' ? 'buy' : 'sell', // Long = buy, Short = sell
+      symbol: pineExitMatch[2].trim(), // "BANKNIFTY"
+      exitPrice: parseFloat(pineExitMatch[3]),
+      exitType: 'Pine Script Exit',
+    };
+  }
+
+  // ========================================
+  // LEGACY FORMATS (Backward Compatibility)
+  // ========================================
+
+  // 3. Bear Trap: "<TICKER> | Bear Trap | Entry at <ENTRY> | SL: <SL> | Target: <TARGET>"
   const bearTrapRegex = /(.+?)\s*\|\s*Bear Trap\s*\|\s*Entry at\s*([\d.]+)\s*\|\s*SL:\s*([\d.]+)\s*\|\s*Target:\s*([\d.]+)/i;
   const bearTrapMatch = messageText.match(bearTrapRegex);
 
   if (bearTrapMatch) {
     return {
       action: 'buy', // Bear Trap = BUY signal
-      symbol: bearTrapMatch[1].trim(), // "BANKNIFTY"
+      symbol: bearTrapMatch[1].trim(),
       entryPrice: parseFloat(bearTrapMatch[2]),
       stopLoss: parseFloat(bearTrapMatch[3]),
       target: parseFloat(bearTrapMatch[4]),
     };
   }
 
-  // Try to match NEW FORMAT: "<TICKER> | Bull Trap | Entry at <ENTRY> | SL: <SL> | Target: <TARGET>"
+  // 4. Bull Trap: "<TICKER> | Bull Trap | Entry at <ENTRY> | SL: <SL> | Target: <TARGET>"
   const bullTrapRegex = /(.+?)\s*\|\s*Bull Trap\s*\|\s*Entry at\s*([\d.]+)\s*\|\s*SL:\s*([\d.]+)\s*\|\s*Target:\s*([\d.]+)/i;
   const bullTrapMatch = messageText.match(bullTrapRegex);
 
   if (bullTrapMatch) {
     return {
       action: 'sell', // Bull Trap = SELL signal
-      symbol: bullTrapMatch[1].trim(), // "BANKNIFTY"
+      symbol: bullTrapMatch[1].trim(),
       entryPrice: parseFloat(bullTrapMatch[2]),
       stopLoss: parseFloat(bullTrapMatch[3]),
       target: parseFloat(bullTrapMatch[4]),
     };
   }
 
-  // Try to match NEW EXIT FORMAT: "BB TRAP LONG EXIT (SL HIT) <TICKER> at <PRICE>"
+  // 5. LONG EXIT: "BB TRAP LONG EXIT (SL HIT) <TICKER> at <PRICE>"
   const longExitRegex = /BB TRAP LONG EXIT \((.+?)\)\s+(.+?)\s+at\s+([\d.]+)/i;
   const longExitMatch = messageText.match(longExitRegex);
 
   if (longExitMatch) {
-    const exitReason = longExitMatch[1].trim(); // "SL HIT", "TARGET HIT", or "3PM EXIT"
     return {
       action: 'exit',
-      originalDirection: 'buy', // LONG = buy position
-      symbol: longExitMatch[2].trim(), // "BANKNIFTY"
+      originalDirection: 'buy',
+      symbol: longExitMatch[2].trim(),
       exitPrice: parseFloat(longExitMatch[3]),
-      exitType: exitReason, // "SL HIT", "TARGET HIT", or "3PM EXIT"
+      exitType: longExitMatch[1].trim(),
     };
   }
 
-  // Try to match NEW EXIT FORMAT: "BB TRAP SHORT EXIT (SL HIT) <TICKER> at <PRICE>"
+  // 6. SHORT EXIT: "BB TRAP SHORT EXIT (SL HIT) <TICKER> at <PRICE>"
   const shortExitRegex = /BB TRAP SHORT EXIT \((.+?)\)\s+(.+?)\s+at\s+([\d.]+)/i;
   const shortExitMatch = messageText.match(shortExitRegex);
 
   if (shortExitMatch) {
-    const exitReason = shortExitMatch[1].trim(); // "SL HIT", "TARGET HIT", or "3PM EXIT"
     return {
       action: 'exit',
-      originalDirection: 'sell', // SHORT = sell position
-      symbol: shortExitMatch[2].trim(), // "BANKNIFTY"
+      originalDirection: 'sell',
+      symbol: shortExitMatch[2].trim(),
       exitPrice: parseFloat(shortExitMatch[3]),
-      exitType: exitReason, // "SL HIT", "TARGET HIT", or "3PM EXIT"
+      exitType: shortExitMatch[1].trim(),
     };
   }
 
-  // Try to match OLD EXIT FORMAT with direction (Buy/Sell) - for SL Hit / Target Hit
+  // 7. Exit with Direction: "BB TRAP Exit Buy/Sell SYMBOL at PRICE | Reason"
   const exitWithDirectionRegex = /BB TRAP Exit (Buy|Sell) (.+?) at ([\d.]+) \| (.+)/i;
   const exitWithDirectionMatch = messageText.match(exitWithDirectionRegex);
 
   if (exitWithDirectionMatch) {
     return {
       action: 'exit',
-      originalDirection: exitWithDirectionMatch[1].toLowerCase(), // "buy" or "sell"
-      symbol: exitWithDirectionMatch[2].trim(), // "BANKNIFTY"
+      originalDirection: exitWithDirectionMatch[1].toLowerCase(),
+      symbol: exitWithDirectionMatch[2].trim(),
       exitPrice: parseFloat(exitWithDirectionMatch[3]),
-      exitType: exitWithDirectionMatch[4].trim(), // "SL Hit" or "Target Hit"
+      exitType: exitWithDirectionMatch[4].trim(),
     };
   }
 
-  // Try to match OLD EXIT FORMAT without direction - for Intraday/End of Day
+  // 8. Exit without Direction: "BB TRAP Exit SYMBOL at PRICE | Reason"
   const exitRegex = /BB TRAP Exit (.+?) at ([\d.]+) \| (.+)/i;
   const exitMatch = messageText.match(exitRegex);
 
   if (exitMatch) {
     return {
       action: 'exit',
-      symbol: exitMatch[1].trim(), // "BANKNIFTY"
+      symbol: exitMatch[1].trim(),
       exitPrice: parseFloat(exitMatch[2]),
-      exitType: exitMatch[3].trim(), // "Intraday Exit" or "End of Day Exit"
+      exitType: exitMatch[3].trim(),
     };
   }
 
-  // Try to match OLD FORMAT: "BB TRAP Buy/Sell SYMBOL at PRICE | SL: PRICE | Target: PRICE"
-  const regex = /BB TRAP (Buy|Sell) (.+?) at ([\d.]+) \| SL: ([\d.]+) \| Target: ([\d.]+)/i;
-  const match = messageText.match(regex);
-
-  if (!match) {
-    return null;
-  }
-
-  return {
-    action: match[1].toLowerCase(), // "buy" or "sell"
-    symbol: match[2].trim(), // "BANKNIFTY" or similar
-    entryPrice: parseFloat(match[3]),
-    stopLoss: parseFloat(match[4]),
-    target: parseFloat(match[5]),
-  };
+  return null;
 }
 
 /**

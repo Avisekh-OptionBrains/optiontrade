@@ -48,38 +48,64 @@ function readSecurityIdMap() {
 }
 
 /**
- * Parse BB TRAP signal
+ * Parse BB TRAP signal from Pine Script alerts
  *
- * Entry Signals:
- *   1. "BB TRAP Buy <TICKER> at <PRICE> | SL: <SL_PRICE> | Target: <TARGET_PRICE>"
- *   2. "BB TRAP Sell <TICKER> at <PRICE> | SL: <SL_PRICE> | Target: <TARGET_PRICE>"
+ * PRIMARY FORMAT (Pine Script - Brain Wave Nifty Strategy):
+ *   Entry:
+ *     - "BB TRAP Buy NIFTY1! at 25560.2 | SL: 25520.2 | Target: 25640.2"
+ *     - "BB TRAP Sell NIFTY1! at 25560.2 | SL: 25600.2 | Target: 25480.2"
+ *   Exit:
+ *     - "BB TRAP LONG EXIT NIFTY1! at 25520.2"
+ *     - "BB TRAP SHORT EXIT NIFTY1! at 25600.2"
+ *     - "BB TRAP LONG EXIT (3PM Exit) NIFTY1! at 25580.2"
+ *     - "BB TRAP SHORT EXIT (EOD Exit) NIFTY1! at 25580.2"
  *
- * Exit Signals with Direction:
- *   3. "BB TRAP Exit Buy <TICKER> at <EXIT_PRICE> | SL Hit"
- *   4. "BB TRAP Exit Buy <TICKER> at <EXIT_PRICE> | Target Hit"
- *   5. "BB TRAP Exit Buy <TICKER> at <EXIT_PRICE> | Exit"
- *   6. "BB TRAP Exit Sell <TICKER> at <EXIT_PRICE> | SL Hit"
- *   7. "BB TRAP Exit Sell <TICKER> at <EXIT_PRICE> | Target Hit"
- *   8. "BB TRAP Exit Sell <TICKER> at <EXIT_PRICE> | Exit"
- *
- * Exit Signals without Direction:
- *   9. "BB TRAP Exit <TICKER> at <PRICE> | Intraday Exit"
- *   10. "BB TRAP Exit <TICKER> at <PRICE> | End of Day Exit"
- *
- * Examples:
- *   - "BB TRAP Buy NIFTY1! at 25560.2 | SL: 25520.2 | Target: 25640.2"
- *   - "BB TRAP Sell NIFTY1! at 25560.2 | SL: 25600.2 | Target: 25480.2"
+ * LEGACY FORMATS (Still supported):
  *   - "BB TRAP Exit Buy NIFTY1! at 25520.2 | SL Hit"
- *   - "BB TRAP Exit Buy NIFTY1! at 25640.2 | Target Hit"
- *   - "BB TRAP Exit Buy NIFTY1! at 25590.2 | Exit"
- *   - "BB TRAP Exit Sell NIFTY1! at 25600.2 | SL Hit"
- *   - "BB TRAP Exit Sell NIFTY1! at 25480.2 | Target Hit"
- *   - "BB TRAP Exit Sell NIFTY1! at 25550.2 | Exit"
+ *   - "BB TRAP Exit Sell NIFTY1! at 25600.2 | Target Hit"
  *   - "BB TRAP Exit NIFTY1! at 25580.2 | Intraday Exit"
- *   - "BB TRAP Exit NIFTY1! at 25580.2 | End of Day Exit"
  */
 function parseBBTrapSignal(signalText) {
-  // Try to match Exit signal with direction (Buy/Sell) - for SL Hit / Target Hit / Exit
+  // ========================================
+  // PINE SCRIPT FORMATS (Priority)
+  // ========================================
+
+  // 1. Pine Script Entry: "BB TRAP Buy/Sell SYMBOL at PRICE | SL: PRICE | Target: PRICE"
+  const pineEntryRegex = /BB TRAP (Buy|Sell) (.+?) at ([\d.]+) \| SL: ([\d.]+) \| Target: ([\d.]+)/i;
+  const pineEntryMatch = signalText.match(pineEntryRegex);
+
+  if (pineEntryMatch) {
+    return {
+      action: pineEntryMatch[1].toLowerCase(), // "buy" or "sell"
+      symbol: pineEntryMatch[2].trim(), // "NIFTY1!"
+      entryPrice: parseFloat(pineEntryMatch[3]),
+      stopLoss: parseFloat(pineEntryMatch[4]),
+      target: parseFloat(pineEntryMatch[5]),
+    };
+  }
+
+  // 2. Pine Script Exit: "BB TRAP LONG/SHORT EXIT SYMBOL at PRICE"
+  // Matches both simple exit and exit with reason in parentheses
+  const pineExitRegex = /BB TRAP (LONG|SHORT) EXIT(?:\s+\((.+?)\))?\s+(.+?)\s+at\s+([\d.]+)/i;
+  const pineExitMatch = signalText.match(pineExitRegex);
+
+  if (pineExitMatch) {
+    const direction = pineExitMatch[1].toLowerCase(); // "long" or "short"
+    const exitReason = pineExitMatch[2] || 'Pine Script Exit'; // "3PM Exit", "EOD Exit", or default
+    return {
+      action: 'exit',
+      originalDirection: direction === 'long' ? 'buy' : 'sell', // LONG = buy, SHORT = sell
+      symbol: pineExitMatch[3].trim(), // "NIFTY1!"
+      exitPrice: parseFloat(pineExitMatch[4]),
+      exitType: exitReason,
+    };
+  }
+
+  // ========================================
+  // LEGACY FORMATS (Backward Compatibility)
+  // ========================================
+
+  // 3. Exit with Direction: "BB TRAP Exit Buy/Sell SYMBOL at PRICE | Reason"
   const exitWithDirectionRegex = /BB TRAP Exit (Buy|Sell) (.+?) at ([\d.]+) \| (.+)/i;
   const exitWithDirectionMatch = signalText.match(exitWithDirectionRegex);
 
@@ -87,40 +113,26 @@ function parseBBTrapSignal(signalText) {
     return {
       action: 'exit',
       originalDirection: exitWithDirectionMatch[1].toLowerCase(), // "buy" or "sell"
-      symbol: exitWithDirectionMatch[2].trim(), // "NIFTY" or "NIFTY1!"
+      symbol: exitWithDirectionMatch[2].trim(), // "NIFTY1!"
       exitPrice: parseFloat(exitWithDirectionMatch[3]),
       exitType: exitWithDirectionMatch[4].trim(), // "SL Hit", "Target Hit", or "Exit"
     };
   }
 
-  // Try to match Exit signal without direction - for Intraday/End of Day
+  // 4. Exit without Direction: "BB TRAP Exit SYMBOL at PRICE | Reason"
   const exitRegex = /BB TRAP Exit (.+?) at ([\d.]+) \| (.+)/i;
   const exitMatch = signalText.match(exitRegex);
 
   if (exitMatch) {
     return {
       action: 'exit',
-      symbol: exitMatch[1].trim(), // "NIFTY" or "NIFTY1!"
+      symbol: exitMatch[1].trim(), // "NIFTY1!"
       exitPrice: parseFloat(exitMatch[2]),
       exitType: exitMatch[3].trim(), // "Intraday Exit" or "End of Day Exit"
     };
   }
 
-  // Try to match Buy/Sell signal
-  const regex = /BB TRAP (Buy|Sell) (.+?) at ([\d.]+) \| SL: ([\d.]+) \| Target: ([\d.]+)/i;
-  const match = signalText.match(regex);
-
-  if (!match) {
-    return null;
-  }
-
-  return {
-    action: match[1].toLowerCase(), // "buy" or "sell"
-    symbol: match[2].trim(), // "NIFTY1!"
-    entryPrice: parseFloat(match[3]),
-    stopLoss: parseFloat(match[4]),
-    target: parseFloat(match[5]),
-  };
+  return null;
 }
 
 /**

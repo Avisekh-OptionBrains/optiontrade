@@ -17,6 +17,8 @@ const dashboardRouter = require("./routes/dashboard");
 const enhancedDashboardRouter = require("./routes/enhanced-dashboard");
 const usersRouter = require("./routes/users");
 const apiRouter = require("./routes/api");
+const authRouter = require("./routes/auth");
+const { verifyAuth, logout } = require("./middleware/authMiddleware");
 const WebSocketManager = require("./websocket-server");
 
 // const puppeteer = require("puppeteer");
@@ -65,7 +67,9 @@ app.use(express.text());
 // Make WebSocket manager available globally
 global.wsManager = wsManager;
 
+// Serve static files (login page is public, others will be protected)
 app.use(express.static(path.join(__dirname, "public")));
+
 app.use((req, res, next) => {
   const start = Date.now();
   res.on("finish", () => {
@@ -77,6 +81,31 @@ app.use((req, res, next) => {
 
 app.use((req, res, next) => {
   console.log(`Received ${req.method} request at ${req.url}`);
+  next();
+});
+
+// Authentication routes (public - no auth required)
+app.use("/api/auth", authRouter);
+app.post("/api/auth/logout", logout);
+
+// Middleware to protect HTML pages (except login.html)
+app.use((req, res, next) => {
+  // Allow public access to login page and auth APIs
+  if (req.path === '/login.html' ||
+      req.path === '/login.js' ||
+      req.path.startsWith('/api/auth/') ||
+      req.path.startsWith('/assets/')) {
+    return next();
+  }
+
+  // For HTML pages, check authentication
+  if (req.path.endsWith('.html')) {
+    const token = req.cookies?.authToken;
+    if (!token) {
+      return res.redirect('/login.html');
+    }
+  }
+
   next();
 });
 //////////////// credentials ////////////////
@@ -1291,12 +1320,14 @@ schedule.scheduleJob("35 3 * * *", async () => {
   await loginToShareKhanForAllClients();
 });
 
-// API Routes
-app.use("/api", apiRouter); // New subscription management API
-app.use("/api/order-responses", orderResponsesRouter);
-app.use("/api/dashboard", dashboardRouter);
-app.use("/api/enhanced-dashboard", enhancedDashboardRouter);
-app.use("/api/users", usersRouter);
+// API Routes (Protected with authentication)
+app.use("/api", verifyAuth, apiRouter); // New subscription management API
+app.use("/api/order-responses", verifyAuth, orderResponsesRouter);
+app.use("/api/dashboard", verifyAuth, dashboardRouter);
+app.use("/api/enhanced-dashboard", verifyAuth, enhancedDashboardRouter);
+app.use("/api/users", verifyAuth, usersRouter);
+
+// Strategy Routes (Webhook routes - NO authentication required for TradingView webhooks)
 app.use("/Epicrise", EpicriseRouter);
 app.use("/CMI", CMIRouter);
 app.use("/OptionTrade", OptionTradeRouter);

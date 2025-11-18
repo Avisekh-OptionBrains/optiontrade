@@ -47,16 +47,16 @@ function showPage(pageName) {
 // Load Dashboard Data
 async function loadDashboard() {
     try {
-        // Fetch users
-        const usersResponse = await fetch(`${API_BASE}/api/users/iifl`);
+        // Fetch users with authentication
+        const usersResponse = await AUTH_HELPER.authenticatedFetch(`${API_BASE}/api/users/iifl`);
         const users = await usersResponse.json();
         document.getElementById('total-users').textContent = users.length;
 
-        // Fetch subscriptions
+        // Fetch subscriptions with authentication
         const [epicrise, optiontrade, banknifty] = await Promise.all([
-            fetch(`${API_BASE}/api/subscriptions/epicrise`).then(r => r.json()),
-            fetch(`${API_BASE}/api/subscriptions/optiontrade`).then(r => r.json()),
-            fetch(`${API_BASE}/api/subscriptions/banknifty`).then(r => r.json())
+            AUTH_HELPER.authenticatedFetch(`${API_BASE}/api/subscriptions/epicrise`).then(r => r.json()),
+            AUTH_HELPER.authenticatedFetch(`${API_BASE}/api/subscriptions/optiontrade`).then(r => r.json()),
+            AUTH_HELPER.authenticatedFetch(`${API_BASE}/api/subscriptions/banknifty`).then(r => r.json())
         ]);
 
         const totalSubs = epicrise.length + optiontrade.length + banknifty.length;
@@ -67,6 +67,7 @@ async function loadDashboard() {
 
     } catch (error) {
         console.error('Error loading dashboard:', error);
+        // Error handling is done in AUTH_HELPER.authenticatedFetch
     }
 }
 
@@ -79,9 +80,9 @@ function refreshDashboard() {
 // Load Recent Activity
 async function loadRecentActivity() {
     const activityDiv = document.getElementById('recent-activity');
-    
+
     try {
-        const usersResponse = await fetch(`${API_BASE}/api/users/iifl`);
+        const usersResponse = await AUTH_HELPER.authenticatedFetch(`${API_BASE}/api/users/iifl`);
         const users = await usersResponse.json();
 
         if (users.length === 0) {
