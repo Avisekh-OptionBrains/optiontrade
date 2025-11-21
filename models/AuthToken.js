@@ -1,56 +1,66 @@
-const mongoose = require("mongoose");
+const prisma = require('../prismaClient')
 
-// Auth Token Schema for session management
-const AuthTokenSchema = new mongoose.Schema(
-  {
-    email: {
-      type: String,
-      required: true,
-      lowercase: true,
-      trim: true
-    },
-    token: {
-      type: String,
-      required: true,
-      unique: true
-    },
-    expiresAt: {
-      type: Date,
-      required: true,
-      default: () => new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours from now
-    },
-    isActive: {
-      type: Boolean,
-      default: true
-    },
-    lastUsed: {
-      type: Date,
-      default: Date.now
+class AuthToken {
+  constructor(data) {
+    Object.assign(this, data)
+  }
+
+  isExpired() {
+    return Date.now() > new Date(this.expiresAt).getTime()
+  }
+
+  isValid() {
+    return (this.isActive ?? true) && !this.isExpired()
+  }
+
+  async refreshUsage() {
+    this.lastUsed = new Date()
+    const updated = await prisma.authToken.update({
+      where: { id: this.id },
+      data: { lastUsed: this.lastUsed },
+    })
+    Object.assign(this, updated)
+    return this
+  }
+
+  async save() {
+    if (this.id) {
+      const updated = await prisma.authToken.update({
+        where: { id: this.id },
+        data: {
+          email: this.email,
+          token: this.token,
+          expiresAt: this.expiresAt,
+          isActive: this.isActive ?? true,
+          lastUsed: this.lastUsed ?? new Date(),
+        },
+      })
+      Object.assign(this, updated)
+      return this
+    } else {
+      const created = await prisma.authToken.create({
+        data: {
+          email: this.email,
+          token: this.token,
+          expiresAt: this.expiresAt ?? new Date(Date.now() + 24 * 60 * 60 * 1000),
+          isActive: this.isActive ?? true,
+          lastUsed: this.lastUsed ?? new Date(),
+        },
+      })
+      Object.assign(this, created)
+      return this
     }
-  },
-  { timestamps: true }
-);
+  }
 
-// Auto-delete expired tokens after 25 hours
-AuthTokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 90000 });
+  static async updateMany(where, data) {
+    await prisma.authToken.updateMany({ where, data })
+  }
 
-// Method to check if token is expired
-AuthTokenSchema.methods.isExpired = function() {
-  return Date.now() > this.expiresAt;
-};
+  static async findOne(where) {
+    const record = await prisma.authToken.findFirst({ where })
+    return record ? new AuthToken(record) : null
+  }
+}
 
-// Method to check if token is valid
-AuthTokenSchema.methods.isValid = function() {
-  return this.isActive && !this.isExpired();
-};
-
-// Method to refresh token usage
-AuthTokenSchema.methods.refreshUsage = function() {
-  this.lastUsed = new Date();
-  return this.save();
-};
-
-const AuthToken = mongoose.model("AuthToken", AuthTokenSchema);
-
-module.exports = AuthToken;
+module.exports = AuthToken
 

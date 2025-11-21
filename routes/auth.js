@@ -161,7 +161,7 @@ router.post('/login', async (req, res) => {
     const otpDoc = await OTP.findOne({ 
       email: normalizedEmail,
       verified: false
-    }).sort({ createdAt: -1 });
+    });
 
     if (!otpDoc) {
       console.log(`❌ No OTP found for: ${normalizedEmail}`);
@@ -211,11 +211,12 @@ router.post('/login', async (req, res) => {
     console.log(`✅ Login successful for: ${normalizedEmail}`);
     console.log(`🔑 Token generated, valid for 24 hours`);
 
+    res.cookie('authToken', token, { httpOnly: true, maxAge: 24 * 60 * 60 * 1000 });
     res.json({ 
       success: true, 
       message: 'Login successful',
       token: token,
-      expiresIn: 86400, // 24 hours in seconds
+      expiresIn: 86400,
       email: normalizedEmail
     });
   } catch (error) {
@@ -230,7 +231,7 @@ router.post('/login', async (req, res) => {
 // Verify token endpoint
 router.get('/verify', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
+    const token = req.headers.authorization?.replace('Bearer ', '') || req.cookies?.authToken;
 
     if (!token) {
       return res.status(401).json({

@@ -1,9 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const IIFLUser = require('../models/IIFLUser');
-const EpicriseSubscription = require('../models/StrategySubscriptions/EpicriseSubscription');
-const OptionTradeSubscription = require('../models/StrategySubscriptions/OptionTradeSubscription');
-const BankNiftySubscription = require('../models/StrategySubscriptions/BankNiftySubscription');
+const prisma = require('../prismaClient');
 
 // ============================================================
 // IIFL USER ROUTES
@@ -12,8 +9,9 @@ const BankNiftySubscription = require('../models/StrategySubscriptions/BankNifty
 // Get all IIFL users
 router.get('/users/iifl', async (req, res) => {
   try {
-    const users = await IIFLUser.find().select('-password -appSecret -totpSecret');
-    res.json(users);
+    const users = await prisma.iIFLUser.findMany();
+    const sanitized = users.map(({ password, appSecret, totpSecret, ...rest }) => rest);
+    res.json(sanitized);
   } catch (error) {
     console.error('Error fetching users:', error);
     res.status(500).json({ error: 'Failed to fetch users' });
@@ -23,14 +21,14 @@ router.get('/users/iifl', async (req, res) => {
 // Get single IIFL user
 router.get('/users/iifl/:userID', async (req, res) => {
   try {
-    const user = await IIFLUser.findOne({ userID: req.params.userID })
-      .select('-password -appSecret -totpSecret');
+    const user = await prisma.iIFLUser.findFirst({ where: { userID: req.params.userID } });
     
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
     
-    res.json(user);
+    const { password, appSecret, totpSecret, ...safe } = user;
+    res.json(safe);
   } catch (error) {
     console.error('Error fetching user:', error);
     res.status(500).json({ error: 'Failed to fetch user' });
@@ -62,26 +60,26 @@ router.post('/iifl/add-user', async (req, res) => {
     }
 
     // Check if user already exists
-    const existingUser = await IIFLUser.findOne({ userID });
+    const existingUser = await prisma.iIFLUser.findFirst({ where: { userID } });
     if (existingUser) {
       return res.status(400).json({ error: 'User already exists with this User ID' });
     }
 
     // Create new user
-    const newUser = new IIFLUser({
-      clientName,
-      userID,
-      email,
-      phoneNumber,
-      password,
-      appKey,
-      appSecret,
-      totpSecret,
-      state: 'live',
-      loginStatus: 'pending'
+    const newUser = await prisma.iIFLUser.create({
+      data: {
+        clientName,
+        userID,
+        email,
+        phoneNumber,
+        password,
+        appKey,
+        appSecret,
+        totpSecret,
+        state: 'live',
+        loginStatus: 'pending'
+      }
     });
-
-    await newUser.save();
 
     console.log(`✅ New IIFL user added: ${clientName} (${userID})`);
 
@@ -161,11 +159,7 @@ router.put('/users/iifl/:userID/state', async (req, res) => {
   try {
     const { state } = req.body;
     
-    const user = await IIFLUser.findOneAndUpdate(
-      { userID: req.params.userID },
-      { state },
-      { new: true }
-    );
+    const user = await prisma.iIFLUser.update({ where: { userID: req.params.userID }, data: { state } });
     
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
@@ -184,7 +178,7 @@ router.delete('/users/iifl/:userID', async (req, res) => {
     const userID = req.params.userID;
     
     // Delete user
-    const user = await IIFLUser.findOneAndDelete({ userID });
+    const user = await prisma.iIFLUser.delete({ where: { userID } });
     
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
@@ -192,9 +186,9 @@ router.delete('/users/iifl/:userID', async (req, res) => {
     
     // Delete all subscriptions
     await Promise.all([
-      EpicriseSubscription.deleteMany({ userID }),
-      OptionTradeSubscription.deleteMany({ userID }),
-      BankNiftySubscription.deleteMany({ userID })
+      prisma.epicriseSubscription.deleteMany({ where: { userID } }),
+      prisma.optionTradeSubscription.deleteMany({ where: { userID } }),
+      prisma.bankNiftySubscription.deleteMany({ where: { userID } })
     ]);
     
     res.json({ success: true, message: 'User and all subscriptions deleted' });
@@ -212,11 +206,11 @@ router.delete('/users/iifl/:userID', async (req, res) => {
 function getSubscriptionModel(strategy) {
   switch(strategy.toLowerCase()) {
     case 'epicrise':
-      return EpicriseSubscription;
+      return 'epicriseSubscription';
     case 'optiontrade':
-      return OptionTradeSubscription;
+      return 'optionTradeSubscription';
     case 'banknifty':
-      return BankNiftySubscription;
+      return 'bankNiftySubscription';
     default:
       return null;
   }
@@ -231,19 +225,19 @@ router.get('/subscriptions/:strategy', async (req, res) => {
       return res.status(400).json({ error: 'Invalid strategy' });
     }
 
-    const subscriptions = await Model.find();
+    const subscriptions = await prisma[Model].findMany();
 
     // Populate with user details and fix missing lotSize
     const enrichedSubscriptions = await Promise.all(
       subscriptions.map(async (sub) => {
-        const user = await IIFLUser.findOne({ userID: sub.userID }).select('clientName email');
-        const subObj = sub.toObject();
+        const user = await prisma.iIFLUser.findFirst({ where: { userID: sub.userID }, select: { clientName: true, email: true } });
+        const subObj = sub;
 
         // Fix missing lotSize for old subscriptions (set default to 1)
         if (req.params.strategy !== 'epicrise' && !subObj.lotSize) {
           subObj.lotSize = 1;
           // Update in database
-          await Model.updateOne({ userID: sub.userID }, { lotSize: 1 });
+          await prisma[Model].updateMany({ where: { userID: sub.userID }, data: { lotSize: 1 } });
         }
 
         return {
@@ -269,7 +263,7 @@ router.get('/subscriptions/:strategy/:userID', async (req, res) => {
       return res.status(400).json({ error: 'Invalid strategy' });
     }
 
-    const subscription = await Model.findOne({ userID: req.params.userID });
+    const subscription = await prisma[Model].findFirst({ where: { userID: req.params.userID } });
 
     if (!subscription) {
       return res.status(404).json({ error: 'Subscription not found' });
@@ -294,20 +288,19 @@ router.post('/subscriptions/:strategy', async (req, res) => {
     const { userID } = req.body;
 
     // Check if user exists
-    const user = await IIFLUser.findOne({ userID });
+    const user = await prisma.iIFLUser.findFirst({ where: { userID } });
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
     // Check if subscription already exists
-    const existing = await Model.findOne({ userID });
+    const existing = await prisma[Model].findFirst({ where: { userID } });
     if (existing) {
       return res.status(400).json({ error: 'Subscription already exists' });
     }
 
     // Create subscription
-    const subscription = new Model(req.body);
-    await subscription.save();
+    const subscription = await prisma[Model].create({ data: req.body });
 
     res.json({ success: true, subscription });
   } catch (error) {
@@ -325,11 +318,7 @@ router.put('/subscriptions/:strategy/:userID', async (req, res) => {
       return res.status(400).json({ error: 'Invalid strategy' });
     }
 
-    const subscription = await Model.findOneAndUpdate(
-      { userID: req.params.userID },
-      req.body,
-      { new: true }
-    );
+    const subscription = await prisma[Model].update({ where: { userID: req.params.userID }, data: req.body });
 
     if (!subscription) {
       return res.status(404).json({ error: 'Subscription not found' });
@@ -351,7 +340,7 @@ router.delete('/subscriptions/:strategy/:userID', async (req, res) => {
       return res.status(400).json({ error: 'Invalid strategy' });
     }
 
-    const subscription = await Model.findOneAndDelete({ userID: req.params.userID });
+    const subscription = await prisma[Model].delete({ where: { userID: req.params.userID } });
 
     if (!subscription) {
       return res.status(404).json({ error: 'Subscription not found' });
@@ -370,9 +359,9 @@ router.get('/users/:userID/subscriptions', async (req, res) => {
     const userID = req.params.userID;
 
     const [epicrise, optiontrade, banknifty] = await Promise.all([
-      EpicriseSubscription.findOne({ userID }),
-      OptionTradeSubscription.findOne({ userID }),
-      BankNiftySubscription.findOne({ userID })
+      prisma.epicriseSubscription.findFirst({ where: { userID } }),
+      prisma.optionTradeSubscription.findFirst({ where: { userID } }),
+      prisma.bankNiftySubscription.findFirst({ where: { userID } })
     ]);
 
     res.json({

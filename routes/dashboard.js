@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const OrderResponse = require('../models/OrderResponse');
-const OrderModel = require('../models/orderModel');
+const prisma = require('../prismaClient');
 
 // Get dashboard data
 router.get('/data', async (req, res) => {
@@ -12,40 +11,26 @@ router.get('/data', async (req, res) => {
         const endOfDay = new Date();
         endOfDay.setHours(23, 59, 59, 999);
 
-        const recentOrders = await OrderResponse.find({
-            timestamp: { $gte: startOfDay, $lte: endOfDay }
-        }).sort({ timestamp: -1 }).limit(50);
+        const recentOrders = await prisma.orderResponse.findMany({
+            where: { timestamp: { gte: startOfDay, lte: endOfDay } },
+            orderBy: { timestamp: 'desc' },
+            take: 50
+        });
 
         // Get order statistics for today
-        const totalOrders = await OrderResponse.countDocuments({
-            timestamp: { $gte: startOfDay, $lte: endOfDay }
-        });
-        const successfulOrders = await OrderResponse.countDocuments({
-            status: 'SUCCESS',
-            timestamp: { $gte: startOfDay, $lte: endOfDay }
-        });
-        const failedOrders = await OrderResponse.countDocuments({
-            status: 'FAILED',
-            timestamp: { $gte: startOfDay, $lte: endOfDay }
-        });
+        const totalOrders = await prisma.orderResponse.count({ where: { timestamp: { gte: startOfDay, lte: endOfDay } } });
+        const successfulOrders = await prisma.orderResponse.count({ where: { status: 'SUCCESS', timestamp: { gte: startOfDay, lte: endOfDay } } });
+        const failedOrders = await prisma.orderResponse.count({ where: { status: 'FAILED', timestamp: { gte: startOfDay, lte: endOfDay } } });
 
         // Get broker-wise statistics for today
-        const angelOrders = await OrderResponse.countDocuments({
-            broker: 'ANGEL',
-            timestamp: { $gte: startOfDay, $lte: endOfDay }
-        });
-        const motilalOrders = await OrderResponse.countDocuments({
-            broker: 'MOTILAL',
-            timestamp: { $gte: startOfDay, $lte: endOfDay }
-        });
+        const angelOrders = await prisma.orderResponse.count({ where: { broker: 'ANGEL', timestamp: { gte: startOfDay, lte: endOfDay } } });
+        const motilalOrders = await prisma.orderResponse.count({ where: { broker: 'MOTILAL', timestamp: { gte: startOfDay, lte: endOfDay } } });
 
         // Get recent telegram messages
-        const recentMessages = await OrderModel.find({})
-            .sort({ createdAt: -1 })
-            .limit(50);
+        const recentMessages = await prisma.webhookOrder.findMany({ orderBy: { createdAt: 'desc' }, take: 50 });
 
         // Get total messages count
-        const totalMessages = await OrderModel.countDocuments({});
+        const totalMessages = await prisma.webhookOrder.count();
 
         res.json({
             recentOrders,
@@ -94,12 +79,27 @@ router.get('/orders', async (req, res) => {
         }
 
         const skip = (page - 1) * limit;
-        const orders = await OrderResponse.find(query)
-            .sort({ timestamp: -1 })
-            .skip(skip)
-            .limit(parseInt(limit));
+        const where = {};
+        if (broker) where.broker = broker.toUpperCase();
+        if (status) where.status = status.toUpperCase();
+        const dateRange = {};
+        if (startDate && endDate) {
+            dateRange.gte = new Date(startDate);
+            dateRange.lte = new Date(endDate);
+        } else {
+            dateRange.gte = startOfDay;
+            dateRange.lte = endOfDay;
+        }
+        where.timestamp = dateRange;
 
-        const total = await OrderResponse.countDocuments(query);
+        const orders = await prisma.orderResponse.findMany({
+            where,
+            orderBy: { timestamp: 'desc' },
+            skip,
+            take: parseInt(limit)
+        });
+
+        const total = await prisma.orderResponse.count({ where });
 
         res.json({
             orders,
@@ -121,12 +121,13 @@ router.get('/messages', async (req, res) => {
         const { page = 1, limit = 50 } = req.query;
         const skip = (page - 1) * limit;
 
-        const messages = await OrderModel.find({})
-            .sort({ createdAt: -1 })
-            .skip(skip)
-            .limit(parseInt(limit));
+        const messages = await prisma.webhookOrder.findMany({
+            orderBy: { createdAt: 'desc' },
+            skip,
+            take: parseInt(limit)
+        });
 
-        const total = await OrderModel.countDocuments({});
+        const total = await prisma.webhookOrder.count();
 
         res.json({
             messages,

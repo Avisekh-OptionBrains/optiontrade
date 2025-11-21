@@ -244,5 +244,36 @@
       }
     ],
     "status": "ACTIVE"
+  },
+  {
+    "timestamp": "2025-11-19T20:08:07.723Z",
+    "strategy": "BB TRAP NIFTY",
+    "signal": {
+      "action": "sell",
+      "symbol": "NIFTY1!",
+      "entryPrice": 25955.2,
+      "stopLoss": 25995.2,
+      "target": 25855.2
+    },
+    "orders": [
+      {
+        "type": "CE",
+        "action": "SELL",
+        "strike": 26100,
+        "delta": 0.5,
+        "price": 131,
+        "security_id": 52952
+      },
+      {
+        "type": "PE",
+        "action": "BUY",
+        "strike": 26100,
+        "delta": -0.5,
+        "price": 155.7,
+        "security_id": 52978
+      }
+    ],
+    "results": [],
+    "status": "ACTIVE"
   }
 ]

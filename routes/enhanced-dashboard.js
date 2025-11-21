@@ -1,9 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const OrderResponse = require('../models/OrderResponse');
-const OrderModel = require('../models/order');
-const Angeluser = require('../models/Angeluser');
-const MOUser = require('../models/MOUser');
+const prisma = require('../prismaClient');
+const IIFLUser = require('../models/IIFLUser');
 
 // Enhanced dashboard data endpoint
 router.get('/data', async (req, res) => {
@@ -17,12 +15,11 @@ router.get('/data', async (req, res) => {
         endOfDay.setHours(23, 59, 59, 999);
 
         // Get recent orders with more details
-        const recentOrders = await OrderResponse.find({
-            timestamp: { $gte: startOfDay, $lte: endOfDay }
-        })
-        .sort({ timestamp: -1 })
-        .limit(50)
-        .lean();
+        const recentOrders = await prisma.orderResponse.findMany({
+            where: { timestamp: { gte: startOfDay, lte: endOfDay } },
+            orderBy: { timestamp: 'desc' },
+            take: 50
+        });
 
         console.log(`Found ${recentOrders.length} orders for today`);
 
@@ -32,123 +29,71 @@ router.get('/data', async (req, res) => {
             successfulOrders,
             failedOrders,
             pendingOrders,
-            angelOrders,
-            motilalOrders,
+            iiflOrders,
             totalMessages,
-            angelClients,
-            motilalClients
+            iiflClients
         ] = await Promise.all([
-            OrderResponse.countDocuments({ timestamp: { $gte: startOfDay, $lte: endOfDay } }),
-            OrderResponse.countDocuments({ status: 'SUCCESS', timestamp: { $gte: startOfDay, $lte: endOfDay } }),
-            OrderResponse.countDocuments({ status: 'FAILED', timestamp: { $gte: startOfDay, $lte: endOfDay } }),
-            OrderResponse.countDocuments({ status: 'PENDING', timestamp: { $gte: startOfDay, $lte: endOfDay } }),
-            OrderResponse.countDocuments({ broker: 'ANGEL', timestamp: { $gte: startOfDay, $lte: endOfDay } }),
-            OrderResponse.countDocuments({ broker: 'MOTILAL', timestamp: { $gte: startOfDay, $lte: endOfDay } }),
-            OrderModel.countDocuments({}),
-            Angeluser.countDocuments({}),
-            MOUser.countDocuments({})
+            prisma.orderResponse.count({ where: { timestamp: { gte: startOfDay, lte: endOfDay } } }),
+            prisma.orderResponse.count({ where: { status: 'SUCCESS', timestamp: { gte: startOfDay, lte: endOfDay } } }),
+            prisma.orderResponse.count({ where: { status: 'FAILED', timestamp: { gte: startOfDay, lte: endOfDay } } }),
+            prisma.orderResponse.count({ where: { status: 'PENDING', timestamp: { gte: startOfDay, lte: endOfDay } } }),
+            prisma.orderResponse.count({ where: { broker: 'IIFL', timestamp: { gte: startOfDay, lte: endOfDay } } }),
+            prisma.webhookOrder.count(),
+            (await IIFLUser.find()).length
         ]);
 
         // Get hourly order distribution for charts
-        const hourlyData = await OrderResponse.aggregate([
-            {
-                $match: {
-                    timestamp: { $gte: startOfDay, $lte: endOfDay }
-                }
-            },
-            {
-                $group: {
-                    _id: {
-                        hour: { $hour: "$timestamp" },
-                        status: "$status"
-                    },
-                    count: { $sum: 1 }
-                }
-            },
-            {
-                $sort: { "_id.hour": 1 }
-            }
-        ]);
+        const dayOrders = await prisma.orderResponse.findMany({ where: { timestamp: { gte: startOfDay, lte: endOfDay } } });
+        const hourlyMap = new Map();
+        for (const o of dayOrders) {
+            const hour = new Date(o.timestamp).getHours();
+            const key = `${hour}-${o.status}`;
+            hourlyMap.set(key, (hourlyMap.get(key) || 0) + 1);
+        }
+        const hourlyData = Array.from(hourlyMap.entries()).map(([key, count]) => {
+            const [hour, status] = key.split('-');
+            return { _id: { hour: Number(hour), status }, count };
+        }).sort((a,b)=>a._id.hour-b._id.hour);
 
         // Get top performing symbols
-        const topSymbols = await OrderResponse.aggregate([
-            {
-                $match: {
-                    timestamp: { $gte: startOfDay, $lte: endOfDay },
-                    status: 'SUCCESS'
-                }
-            },
-            {
-                $group: {
-                    _id: "$symbol",
-                    count: { $sum: 1 },
-                    totalQuantity: { $sum: "$quantity" },
-                    avgPrice: { $avg: "$price" }
-                }
-            },
-            {
-                $sort: { count: -1 }
-            },
-            {
-                $limit: 10
-            }
-        ]);
+        const succDay = dayOrders.filter(o => o.status === 'SUCCESS');
+        const symMap = new Map();
+        for (const o of succDay) {
+            const curr = symMap.get(o.symbol) || { _id: o.symbol, count: 0, totalQuantity: 0, priceSum: 0 };
+            curr.count += 1; curr.totalQuantity += (o.quantity || 0); curr.priceSum += (o.price || 0);
+            symMap.set(o.symbol, curr);
+        }
+        const topSymbols = Array.from(symMap.values()).map(v => ({ _id: v._id, count: v.count, totalQuantity: v.totalQuantity, avgPrice: v.count? v.priceSum/v.count:0 }))
+            .sort((a,b)=>b.count-a.count).slice(0,10);
 
         // Get broker performance
-        const brokerPerformance = await OrderResponse.aggregate([
-            {
-                $match: {
-                    timestamp: { $gte: startOfDay, $lte: endOfDay }
-                }
-            },
-            {
-                $group: {
-                    _id: {
-                        broker: "$broker",
-                        status: "$status"
-                    },
-                    count: { $sum: 1 }
-                }
-            }
-        ]);
+        const brokerPerformanceMap = new Map();
+        for (const o of dayOrders) {
+            const key = `${o.broker}-${o.status}`;
+            brokerPerformanceMap.set(key, (brokerPerformanceMap.get(key) || 0) + 1);
+        }
+        const brokerPerformance = Array.from(brokerPerformanceMap.entries()).map(([key,count])=>{
+            const [broker,status]=key.split('-');
+            return { _id: { broker, status }, count };
+        });
 
         // Calculate success rates
         const successRate = totalOrders > 0 ? ((successfulOrders / totalOrders) * 100).toFixed(2) : 0;
-        const angelSuccessRate = angelOrders > 0 ? 
-            ((await OrderResponse.countDocuments({ 
-                broker: 'ANGEL', 
-                status: 'SUCCESS', 
-                timestamp: { $gte: startOfDay, $lte: endOfDay } 
-            }) / angelOrders) * 100).toFixed(2) : 0;
-        const motilalSuccessRate = motilalOrders > 0 ? 
-            ((await OrderResponse.countDocuments({ 
-                broker: 'MOTILAL', 
-                status: 'SUCCESS', 
-                timestamp: { $gte: startOfDay, $lte: endOfDay } 
-            }) / motilalOrders) * 100).toFixed(2) : 0;
+        const iiflSuccessCount = await prisma.orderResponse.count({
+            where: {
+                broker: 'IIFL',
+                status: 'SUCCESS',
+                timestamp: { gte: startOfDay, lte: endOfDay }
+            }
+        });
+        const iiflSuccessRate = iiflOrders > 0 ? ((iiflSuccessCount / iiflOrders) * 100).toFixed(2) : 0;
 
         // Get recent messages
-        const recentMessages = await OrderModel.find({})
-            .sort({ createdAt: -1 })
-            .limit(20)
-            .lean();
+        const recentMessages = await prisma.webhookOrder.findMany({ orderBy: { createdAt: 'desc' }, take: 20 });
 
         // Calculate total trading volume
-        const totalVolume = await OrderResponse.aggregate([
-            {
-                $match: {
-                    timestamp: { $gte: startOfDay, $lte: endOfDay },
-                    status: 'SUCCESS'
-                }
-            },
-            {
-                $group: {
-                    _id: null,
-                    totalValue: { $sum: { $multiply: ["$price", "$quantity"] } },
-                    totalQuantity: { $sum: "$quantity" }
-                }
-            }
-        ]);
+        const totalValue = succDay.reduce((sum, o) => sum + (o.price || 0)*(o.quantity || 0), 0);
+        const totalQuantity = succDay.reduce((sum, o) => sum + (o.quantity || 0), 0);
 
         const response = {
             statistics: {
@@ -157,16 +102,13 @@ router.get('/data', async (req, res) => {
                 failed: failedOrders,
                 pending: pendingOrders,
                 successRate: parseFloat(successRate),
-                angelBroker: angelOrders,
-                motilalBroker: motilalOrders,
-                angelSuccessRate: parseFloat(angelSuccessRate),
-                motilalSuccessRate: parseFloat(motilalSuccessRate),
+                iiflBroker: iiflOrders,
+                iiflSuccessRate: parseFloat(iiflSuccessRate),
                 totalMessages: totalMessages,
-                angelClients: angelClients,
-                motilalClients: motilalClients,
-                totalClients: angelClients + motilalClients,
-                totalVolume: totalVolume.length > 0 ? totalVolume[0].totalValue : 0,
-                totalQuantity: totalVolume.length > 0 ? totalVolume[0].totalQuantity : 0
+                iiflClients: iiflClients,
+                totalClients: iiflClients,
+                totalVolume: totalValue,
+                totalQuantity: totalQuantity
             },
             recentOrders,
             recentMessages,
@@ -194,23 +136,12 @@ router.get('/stats/realtime', async (req, res) => {
         const now = new Date();
         const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
 
-        const realtimeStats = await OrderResponse.aggregate([
-            {
-                $match: {
-                    timestamp: { $gte: fiveMinutesAgo }
-                }
-            },
-            {
-                $group: {
-                    _id: "$status",
-                    count: { $sum: 1 }
-                }
-            }
-        ]);
+        const recentOrders = await prisma.orderResponse.findMany({ where: { timestamp: { gte: fiveMinutesAgo } } });
+        const statMap = new Map();
+        for (const o of recentOrders) { statMap.set(o.status, (statMap.get(o.status)||0)+1); }
+        const realtimeStats = Array.from(statMap.entries()).map(([status,count])=>({ _id: status, count }));
 
-        const recentMessages = await OrderModel.countDocuments({
-            createdAt: { $gte: fiveMinutesAgo }
-        });
+        const recentMessages = await prisma.webhookOrder.count({ where: { createdAt: { gte: fiveMinutesAgo } } });
 
         // WebSocket connection stats
         const wsStats = global.wsManager ? global.wsManager.getConnectionStats() : { totalConnections: 0, activeConnections: 0 };
@@ -250,34 +181,18 @@ router.get('/performance', async (req, res) => {
                 startTime = new Date(Date.now() - 24 * 60 * 60 * 1000);
         }
 
-        const performanceData = await OrderResponse.aggregate([
-            {
-                $match: {
-                    timestamp: { $gte: startTime }
-                }
-            },
-            {
-                $group: {
-                    _id: {
-                        $dateToString: {
-                            format: timeframe === '1h' ? "%Y-%m-%d %H:%M" : "%Y-%m-%d %H:00",
-                            date: "$timestamp"
-                        }
-                    },
-                    totalOrders: { $sum: 1 },
-                    successfulOrders: {
-                        $sum: { $cond: [{ $eq: ["$status", "SUCCESS"] }, 1, 0] }
-                    },
-                    failedOrders: {
-                        $sum: { $cond: [{ $eq: ["$status", "FAILED"] }, 1, 0] }
-                    },
-                    avgResponseTime: { $avg: "$responseTime" }
-                }
-            },
-            {
-                $sort: { "_id": 1 }
-            }
-        ]);
+        const perfOrders = await prisma.orderResponse.findMany({ where: { timestamp: { gte: startTime } }, orderBy: { timestamp: 'asc' } });
+        const bucket = new Map();
+        for (const o of perfOrders) {
+            const dt = new Date(o.timestamp);
+            const key = `${dt.getFullYear()}-${dt.getMonth()+1}-${dt.getDate()} ${dt.getHours()}:00`;
+            const curr = bucket.get(key) || { totalOrders: 0, successfulOrders: 0, failedOrders: 0 };
+            curr.totalOrders += 1;
+            if (o.status === 'SUCCESS') curr.successfulOrders += 1;
+            if (o.status === 'FAILED') curr.failedOrders += 1;
+            bucket.set(key, curr);
+        }
+        const performanceData = Array.from(bucket.entries()).map(([key, v]) => ({ _id: key, ...v }));
 
         res.json({
             timeframe,
@@ -305,7 +220,11 @@ router.get('/export/:format', async (req, res) => {
         if (broker) query.broker = broker.toUpperCase();
         if (status) query.status = status.toUpperCase();
 
-        const orders = await OrderResponse.find(query).sort({ timestamp: -1 });
+        const where = {};
+        if (startDate && endDate) { where.timestamp = { gte: new Date(startDate), lte: new Date(endDate) } }
+        if (broker) where.broker = broker.toUpperCase();
+        if (status) where.status = status.toUpperCase();
+        const orders = await prisma.orderResponse.findMany({ where, orderBy: { timestamp: 'desc' } });
 
         if (format === 'json') {
             res.json(orders);
@@ -359,48 +278,30 @@ router.get('/orders', async (req, res) => {
             };
         }
 
-        // Query OrderResponse collection
-        const orderResponseQuery = {};
-        if (broker) orderResponseQuery.broker = broker.toUpperCase();
-        if (status) orderResponseQuery.status = status.toUpperCase();
-        if (clientName) orderResponseQuery.clientName = new RegExp(clientName, 'i');
-        if (symbol) orderResponseQuery.symbol = new RegExp(symbol, 'i');
-        if (Object.keys(dateFilter).length > 0) {
-            orderResponseQuery.timestamp = dateFilter;
-        }
+        // Build Prisma where clause
+        const where = {};
+        if (broker) where.broker = broker.toUpperCase();
+        if (status) where.status = status.toUpperCase();
+        if (clientName) where.clientName = { contains: clientName, mode: 'insensitive' };
+        if (symbol) where.symbol = { contains: symbol, mode: 'insensitive' };
+        if (Object.keys(dateFilter).length > 0) where.timestamp = { gte: dateFilter.$gte, lte: dateFilter.$lte };
 
-        // Fetch from OrderResponse collection only
-        const orderResponses = await OrderResponse.find(orderResponseQuery)
-            .sort({ timestamp: -1 })
-            .lean();
-
-        // Transform OrderResponse records
-        const allOrders = orderResponses.map(order => ({
-            _id: order._id,
-            timestamp: order.timestamp,
-            clientName: order.clientName,
-            broker: order.broker,
-            symbol: order.symbol,
-            transactionType: order.transactionType,
-            orderType: order.orderType,
-            quantity: order.quantity,
-            price: order.price,
-            status: order.status,
-            orderId: order.orderId,
-            message: order.message
-        }));
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+        const total = await prisma.orderResponse.count({ where });
+        const orderResponses = await prisma.orderResponse.findMany({
+            where,
+            orderBy: { timestamp: 'desc' },
+            skip,
+            take: parseInt(limit)
+        });
 
         // Apply pagination
-        const skip = (page - 1) * limit;
-        const paginatedOrders = allOrders.slice(skip, skip + parseInt(limit));
-        const total = allOrders.length;
-
         res.json({
-            orders: paginatedOrders,
+            orders: orderResponses,
             pagination: {
                 total,
                 page: parseInt(page),
-                pages: Math.ceil(total / limit)
+                pages: Math.ceil(total / parseInt(limit))
             }
         });
     } catch (error) {
@@ -417,11 +318,9 @@ router.get('/messages/stats', async (req, res) => {
         const endOfDay = new Date();
         endOfDay.setHours(23, 59, 59, 999);
 
-        const total = await OrderModel.countDocuments({});
-        const processed = await OrderResponse.countDocuments({});
-        const today = await OrderModel.countDocuments({
-            createdAt: { $gte: startOfDay, $lte: endOfDay }
-        });
+        const total = await prisma.webhookOrder.count();
+        const processed = await prisma.orderResponse.count();
+        const today = await prisma.webhookOrder.count({ where: { createdAt: { gte: startOfDay, lte: endOfDay } } });
 
         res.json({ total, processed, today });
     } catch (error) {
@@ -433,10 +332,7 @@ router.get('/messages/stats', async (req, res) => {
 // Recent messages endpoint
 router.get('/messages/recent', async (req, res) => {
     try {
-        const messages = await OrderModel.find({})
-            .sort({ createdAt: -1 })
-            .limit(10)
-            .lean();
+        const messages = await prisma.webhookOrder.findMany({ orderBy: { createdAt: 'desc' }, take: 10 });
 
         res.json(messages);
     } catch (error) {
@@ -448,24 +344,17 @@ router.get('/messages/recent', async (req, res) => {
 // Client stats endpoint
 router.get('/clients/stats', async (req, res) => {
     try {
-        const angelUsers = await Angeluser.countDocuments({});
-        const motilalUsers = await MOUser.countDocuments({});
-        const total = angelUsers + motilalUsers;
+        const iiflUsers = (await IIFLUser.find()).length;
+        const total = iiflUsers;
 
         // Count active users (those with valid tokens)
-        const activeAngel = await Angeluser.countDocuments({
-            jwtToken: { $exists: true, $ne: null, $ne: '' }
-        });
-        const activeMotilal = await MOUser.countDocuments({
-            jwtToken: { $exists: true, $ne: null, $ne: '' }
-        });
-        const active = activeAngel + activeMotilal;
+        const activeIIFL = (await IIFLUser.find()).filter(u => u.token && u.token !== '').length;
+        const active = activeIIFL;
 
         res.json({
             total,
             active,
-            angel: angelUsers,
-            motilal: motilalUsers
+            iifl: iiflUsers
         });
     } catch (error) {
         console.error('Error fetching client stats:', error);
@@ -476,33 +365,16 @@ router.get('/clients/stats', async (req, res) => {
 // Recent clients endpoint
 router.get('/clients/recent', async (req, res) => {
     try {
-        const angelUsers = await Angeluser.find({}, {
-            password: 0,
-            totpKey: 0
-        }).sort({ updatedAt: -1 }).limit(5).lean();
+        const iiflUsers = await prisma.iIFLUser.findMany({ orderBy: { updatedAt: 'desc' }, take: 10 });
 
-        const motilalUsers = await MOUser.find({}, {
-            password: 0,
-            totpKey: 0
-        }).sort({ updatedAt: -1 }).limit(5).lean();
-
-        // Combine and format the data
-        const clients = [
-            ...angelUsers.map(user => ({
-                name: user.clientName || user.username || 'Unknown',
-                broker: 'ANGEL',
-                capital: user.capital || 0,
-                isActive: !!(user.jwtToken && user.jwtToken !== ''),
-                lastActive: user.updatedAt
-            })),
-            ...motilalUsers.map(user => ({
-                name: user.clientName || user.username || 'Unknown',
-                broker: 'MOTILAL',
-                capital: user.capital || 0,
-                isActive: !!(user.jwtToken && user.jwtToken !== ''),
-                lastActive: user.updatedAt
-            }))
-        ].sort((a, b) => new Date(b.lastActive) - new Date(a.lastActive)).slice(0, 10);
+        // Format the data
+        const clients = iiflUsers.map(user => ({
+            name: user.clientName || user.userID || 'Unknown',
+            broker: 'IIFL',
+            capital: user.capital || 0,
+            isActive: !!(user.token && user.token !== ''),
+            lastActive: user.updatedAt || user.lastLoginTime
+        }));
 
         res.json(clients);
     } catch (error) {
@@ -531,41 +403,26 @@ router.get('/analytics/symbols', async (req, res) => {
                 break;
         }
 
-        const symbolStats = await OrderResponse.aggregate([
-            {
-                $match: {
-                    timestamp: dateFilter,
-                    symbol: { $exists: true, $ne: null }
-                }
-            },
-            {
-                $group: {
-                    _id: '$symbol',
-                    totalOrders: { $sum: 1 },
-                    successfulOrders: {
-                        $sum: { $cond: [{ $eq: ['$status', 'SUCCESS'] }, 1, 0] }
-                    },
-                    totalVolume: { $sum: { $multiply: ['$price', '$quantity'] } },
-                    avgPrice: { $avg: '$price' }
-                }
-            },
-            {
-                $project: {
-                    symbol: '$_id',
-                    totalOrders: 1,
-                    successRate: {
-                        $round: [
-                            { $multiply: [{ $divide: ['$successfulOrders', '$totalOrders'] }, 100] },
-                            2
-                        ]
-                    },
-                    avgPrice: { $round: ['$avgPrice', 2] },
-                    totalVolume: { $round: ['$totalVolume', 2] }
-                }
-            },
-            { $sort: { totalOrders: -1 } },
-            { $limit: 10 }
-        ]);
+        const filterWhere = {};
+        if (dateFilter.$gte) filterWhere.timestamp = { gte: dateFilter.$gte };
+        const orders = await prisma.orderResponse.findMany({ where: filterWhere });
+        const map = new Map();
+        for (const o of orders) {
+            if (!o.symbol) continue;
+            const curr = map.get(o.symbol) || { totalOrders: 0, successfulOrders: 0, totalVolume: 0, priceSum: 0 };
+            curr.totalOrders += 1;
+            if (o.status === 'SUCCESS') curr.successfulOrders += 1;
+            curr.totalVolume += (o.price || 0) * (o.quantity || 0);
+            curr.priceSum += (o.price || 0);
+            map.set(o.symbol, curr);
+        }
+        const symbolStats = Array.from(map.entries()).map(([symbol, v]) => ({
+            symbol,
+            totalOrders: v.totalOrders,
+            successRate: v.totalOrders ? Math.round((v.successfulOrders / v.totalOrders) * 10000) / 100 : 0,
+            avgPrice: v.totalOrders ? Math.round((v.priceSum / v.totalOrders) * 100) / 100 : 0,
+            totalVolume: Math.round(v.totalVolume * 100) / 100
+        })).sort((a,b)=>b.totalOrders-a.totalOrders).slice(0,10);
 
         res.json(symbolStats);
     } catch (error) {
@@ -628,10 +485,10 @@ router.post('/test-message', async (req, res) => {
 // Orders export endpoint
 router.get('/orders/export', async (req, res) => {
     try {
-        const orders = await OrderResponse.find({})
-            .sort({ timestamp: -1 })
-            .limit(1000)
-            .lean();
+        const orders = await prisma.orderResponse.findMany({
+            orderBy: { timestamp: 'desc' },
+            take: 1000
+        });
 
         // Convert to CSV format
         const csvHeader = 'Order ID,Time,Client,Broker,Symbol,Action,Quantity,Price,Status\n';

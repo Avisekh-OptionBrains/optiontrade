@@ -1,36 +1,69 @@
-const mongoose = require("mongoose");
+const prisma = require('../prismaClient')
 
-// Define the IIFL user schema - MAIN MODEL (Login & Token Management)
-const IIFLUserSchema = new mongoose.Schema(
-  {
-    email: { type: String, required: true },
-    phoneNumber: { type: String, required: true },
-    clientName: { type: String, required: true },
-    // IIFL API credentials (New format - all required)
-    userID: { type: String, required: true, unique: true }, // IIFL Client ID (e.g., "28748327")
-    password: { type: String, required: true }, // IIFL trading password
-    appKey: { type: String, required: true }, // IIFL App Key
-    appSecret: { type: String, required: true }, // IIFL App Secret
-    totpSecret: { type: String, required: true }, // TOTP Secret for 2FA
-    // Generated tokens (will be updated by cron job)
-    token: { type: String, required: false }, // Session token from login - SHARED BY ALL STRATEGIES
-    // Trading configuration (DEPRECATED - use strategy-specific models)
-    capital: { type: Number, required: false }, // Kept for backward compatibility
-    state: { type: String, default: "live" }, // live, paused, disabled
-    // Additional IIFL specific fields
-    tokenValidity: { type: Date, required: false },
-    lastLoginTime: { type: Date, required: false },
-    tradingStatus: { type: String, default: "active" },
-    loginStatus: { type: String, default: "pending" }, // pending, success, failed
-    // User profile data from IIFL
-    isInvestorClient: { type: Boolean, required: false },
-    clientType: { type: String, required: false },
-    exchangeList: { type: Array, required: false },
-  },
-  { timestamps: true }
-);
+class IIFLUser {
+  constructor(data) {
+    Object.assign(this, data)
+  }
 
-// Create the model
-const IIFLUser = mongoose.model("IIFLUser", IIFLUserSchema);
+  async save() {
+    if (this.id) {
+      const updated = await prisma.iIFLUser.update({
+        where: { id: this.id },
+        data: {
+          email: this.email,
+          phoneNumber: this.phoneNumber,
+          clientName: this.clientName,
+          userID: this.userID,
+          password: this.password,
+          appKey: this.appKey,
+          appSecret: this.appSecret,
+          totpSecret: this.totpSecret,
+          token: this.token ?? null,
+          capital: this.capital ?? null,
+          state: this.state ?? 'live',
+          tokenValidity: this.tokenValidity ?? null,
+          lastLoginTime: this.lastLoginTime ?? null,
+          tradingStatus: this.tradingStatus ?? 'active',
+          loginStatus: this.loginStatus ?? 'pending',
+          isInvestorClient: this.isInvestorClient ?? null,
+          clientType: this.clientType ?? null,
+          exchangeList: this.exchangeList ?? null,
+        },
+      })
+      Object.assign(this, updated)
+      return this
+    } else {
+      const created = await prisma.iIFLUser.create({
+        data: {
+          email: this.email,
+          phoneNumber: this.phoneNumber,
+          clientName: this.clientName,
+          userID: this.userID,
+          password: this.password,
+          appKey: this.appKey,
+          appSecret: this.appSecret,
+          totpSecret: this.totpSecret,
+          token: this.token ?? null,
+          capital: this.capital ?? null,
+          state: this.state ?? 'live',
+          tokenValidity: this.tokenValidity ?? null,
+          lastLoginTime: this.lastLoginTime ?? null,
+          tradingStatus: this.tradingStatus ?? 'active',
+          loginStatus: this.loginStatus ?? 'pending',
+          isInvestorClient: this.isInvestorClient ?? null,
+          clientType: this.clientType ?? null,
+          exchangeList: this.exchangeList ?? null,
+        },
+      })
+      Object.assign(this, created)
+      return this
+    }
+  }
 
-module.exports = IIFLUser;
+  static async find() {
+    const rows = await prisma.iIFLUser.findMany()
+    return rows.map(r => new IIFLUser(r))
+  }
+}
+
+module.exports = IIFLUser

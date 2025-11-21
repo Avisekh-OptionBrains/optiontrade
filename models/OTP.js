@@ -1,64 +1,67 @@
-const mongoose = require("mongoose");
+const prisma = require('../prismaClient')
 
-// OTP Schema for email verification
-const OTPSchema = new mongoose.Schema(
-  {
-    email: {
-      type: String,
-      required: true,
-      lowercase: true,
-      trim: true
-    },
-    otp: {
-      type: String,
-      required: true
-    },
-    expiresAt: {
-      type: Date,
-      required: true,
-      default: () => new Date(Date.now() + 10 * 60 * 1000) // 10 minutes from now
-    },
-    verified: {
-      type: Boolean,
-      default: false
-    },
-    attempts: {
-      type: Number,
-      default: 0
+class OTP {
+  constructor(data) {
+    Object.assign(this, data)
+  }
+
+  isExpired() {
+    return Date.now() > new Date(this.expiresAt).getTime()
+  }
+
+  verify(inputOtp) {
+    if (this.isExpired()) {
+      return { success: false, error: 'OTP has expired' }
     }
-  },
-  { timestamps: true }
-);
-
-// Auto-delete expired OTPs after 15 minutes
-OTPSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 900 });
-
-// Method to check if OTP is expired
-OTPSchema.methods.isExpired = function() {
-  return Date.now() > this.expiresAt;
-};
-
-// Method to verify OTP
-OTPSchema.methods.verify = function(inputOtp) {
-  if (this.isExpired()) {
-    return { success: false, error: 'OTP has expired' };
+    if ((this.attempts ?? 0) >= 3) {
+      return { success: false, error: 'Maximum verification attempts exceeded' }
+    }
+    this.attempts = (this.attempts ?? 0) + 1
+    if (this.otp === inputOtp) {
+      this.verified = true
+      return { success: true }
+    }
+    return { success: false, error: 'Invalid OTP' }
   }
-  
-  if (this.attempts >= 3) {
-    return { success: false, error: 'Maximum verification attempts exceeded' };
-  }
-  
-  this.attempts += 1;
-  
-  if (this.otp === inputOtp) {
-    this.verified = true;
-    return { success: true };
-  }
-  
-  return { success: false, error: 'Invalid OTP' };
-};
 
-const OTP = mongoose.model("OTP", OTPSchema);
+  async save() {
+    if (this.id) {
+      const updated = await prisma.oTP.update({
+        where: { id: this.id },
+        data: {
+          email: this.email,
+          otp: this.otp,
+          expiresAt: this.expiresAt,
+          verified: this.verified ?? false,
+          attempts: this.attempts ?? 0,
+        },
+      })
+      Object.assign(this, updated)
+      return this
+    } else {
+      const created = await prisma.oTP.create({
+        data: {
+          email: this.email,
+          otp: this.otp,
+          expiresAt: this.expiresAt ?? new Date(Date.now() + 10 * 60 * 1000),
+          verified: this.verified ?? false,
+          attempts: this.attempts ?? 0,
+        },
+      })
+      Object.assign(this, created)
+      return this
+    }
+  }
 
-module.exports = OTP;
+  static async deleteMany(where) {
+    await prisma.oTP.deleteMany({ where })
+  }
+
+  static async findOne(where) {
+    const record = await prisma.oTP.findFirst({ where, orderBy: { createdAt: 'desc' } })
+    return record ? new OTP(record) : null
+  }
+}
+
+module.exports = OTP
 

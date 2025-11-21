@@ -209,17 +209,19 @@ const IIFL_BASE_URL = "https://api.iiflcapital.com/v1";
  * Place order for a single IIFL user for an option
  */
 async function placeOrderForUser(user, order) {
-  const { clientName, token, userID, subscription } = user;
+  const { clientName, token, userID, subscription, tokenValidity } = user;
 
   console.log(`\n📊 IIFL Client: ${clientName}`);
-  console.log(`   � User ID: ${userID}`);
+  console.log(`   👤 User ID: ${userID}`);
   console.log(`   📦 Lot Size: ${subscription.lotSize} lots`);
   console.log(`   📊 Quantity: ${subscription.quantity} qty`);
   console.log(`   🔑 Has Token: ${!!token}`);
 
-  if (!token) {
-    console.error(`❌ Missing token for ${clientName}`);
-    return { success: false, error: `Missing token for ${clientName}`, clientName };
+  // REAL TRADING ONLY - Validate token is present and valid
+  const valid = token && tokenValidity && new Date(tokenValidity).getTime() > Date.now();
+  if (!valid) {
+    console.error(`❌ Missing/expired token for ${clientName} - CANNOT PLACE ORDER`);
+    return { success: false, error: `Missing/expired token for ${clientName}`, clientName };
   }
 
   if (!subscription || !subscription.quantity) {
@@ -271,18 +273,19 @@ async function placeOrderForUser(user, order) {
     try {
       const OrderResponse = require('../../../../models/OrderResponse');
 
-      // Extract order ID from response (IIFL returns array of order responses)
+      // Extract order ID from response (IIFL returns result array with brokerOrderId)
       let orderIdValue = null;
       let uniqueOrderIdValue = null;
       let statusValue = "SUCCESS"; // If we reach here, API call was successful
 
-      if (response.data && Array.isArray(response.data) && response.data.length > 0) {
-        const firstOrder = response.data[0];
-        orderIdValue = firstOrder.orderId || firstOrder.OrderId || firstOrder.order_id || null;
-        uniqueOrderIdValue = firstOrder.uniqueOrderId || firstOrder.UniqueOrderId || firstOrder.unique_order_id || null;
+      // IIFL API returns: { status: "Ok", message: "Success", result: [{ brokerOrderId: "...", ... }] }
+      if (response.data && response.data.result && Array.isArray(response.data.result) && response.data.result.length > 0) {
+        const firstOrder = response.data.result[0];
+        orderIdValue = firstOrder.brokerOrderId || firstOrder.BrokerOrderId || null;
+        uniqueOrderIdValue = firstOrder.exchangeOrderId || firstOrder.ExchangeOrderId || null;
 
         // Check if order was rejected by exchange
-        if (firstOrder.status === 'REJECTED' || firstOrder.Status === 'REJECTED') {
+        if (firstOrder.status === 'REJECTED' || firstOrder.Status === 'REJECTED' || firstOrder.status === 'Rejected') {
           statusValue = "FAILED";
         }
       }

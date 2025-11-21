@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { placeOrdersForAllUsers } = require("./IIFLUtils");
+const { placeOrdersForSubscribedEpicriseUsers } = require("./IIFLUtils");
 
 /**
  * IIFL Trading Signal Handler
@@ -56,7 +56,7 @@ router.post("/", async (req, res) => {
 
     // Place orders for all IIFL users
     console.log("🚀 Starting IIFL order placement...");
-    const results = await placeOrdersForAllUsers(
+    const results = await placeOrdersForSubscribedEpicriseUsers(
       symbol,
       action, // Use the mapped action parameter
       price,

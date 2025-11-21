@@ -114,17 +114,18 @@ router.post("/", async (req, res) => {
     }
 
     // Save message to database
-    const OrderModel = require('../../../models/orderModel');
-    const newMessage = new OrderModel({
-      token: parsedData.symbol,
-      symbol: parsedData.symbol,
-      transactionType: parsedData.transactionType,
-      message: formattedMessage,
-      price: parsedData.price
+    const prisma = require('../../../prismaClient');
+    const newMessage = await prisma.webhookOrder.create({
+      data: {
+        token: parsedData.symbol,
+        symbol: parsedData.symbol,
+        transactionType: parsedData.transactionType,
+        message: formattedMessage,
+        price: parsedData.price
+      }
     });
 
     try {
-      await newMessage.save();
       console.log('Saved Epicrise message to database:', {
         symbol: newMessage.symbol,
         transactionType: newMessage.transactionType,

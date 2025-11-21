@@ -93,11 +93,7 @@ const logout = async (req, res) => {
                   req.cookies?.authToken;
 
     if (token) {
-      // Deactivate token
-      await AuthToken.findOneAndUpdate(
-        { token: token },
-        { isActive: false }
-      );
+      await AuthToken.updateMany({ token: token }, { isActive: false });
       console.log(`✅ User logged out successfully`);
     }
 

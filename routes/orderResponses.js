@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const OrderResponse = require('../models/OrderResponse');
+const prisma = require('../prismaClient');
 
 // Get all order responses with pagination
 router.get('/', async (req, res) => {
@@ -36,10 +36,17 @@ router.get('/', async (req, res) => {
             orderQuery.timestamp = dateFilter;
         }
 
-        // Fetch from OrderResponse collection only
-        const orderResponses = await OrderResponse.find(orderQuery)
-            .sort({ timestamp: -1 })
-            .lean();
+        const where = {};
+        if (orderQuery.broker) where.broker = orderQuery.broker;
+        if (orderQuery.status) where.status = orderQuery.status;
+        if (orderQuery.clientName) where.clientName = { contains: req.query.clientName, mode: 'insensitive' };
+        if (orderQuery.symbol) where.symbol = { contains: req.query.symbol, mode: 'insensitive' };
+        if (orderQuery.timestamp) where.timestamp = { gte: orderQuery.timestamp.$gte, lte: orderQuery.timestamp.$lte };
+
+        const orderResponses = await prisma.orderResponse.findMany({
+            where,
+            orderBy: { timestamp: 'desc' }
+        });
 
         res.json({
             success: true,
@@ -59,7 +66,8 @@ router.get('/', async (req, res) => {
 // Get order response by ID
 router.get('/:id', async (req, res) => {
     try {
-        const orderResponse = await OrderResponse.findById(req.params.id);
+        const id = parseInt(req.params.id, 10);
+        const orderResponse = await prisma.orderResponse.findUnique({ where: { id } });
         
         if (!orderResponse) {
             return res.status(404).json({
@@ -84,34 +92,23 @@ router.get('/:id', async (req, res) => {
 // Get order statistics
 router.get('/stats/summary', async (req, res) => {
     try {
-        const stats = await OrderResponse.aggregate([
-            {
-                $group: {
-                    _id: null,
-                    totalOrders: { $sum: 1 },
-                    successfulOrders: {
-                        $sum: { $cond: [{ $eq: ['$status', 'SUCCESS'] }, 1, 0] }
-                    },
-                    failedOrders: {
-                        $sum: { $cond: [{ $eq: ['$status', 'FAILED'] }, 1, 0] }
-                    },
-                    totalVolume: { $sum: '$quantity' },
-                    totalValue: { $sum: { $multiply: ['$price', '$quantity'] } }
-                }
-            }
-        ]);
-
-        const brokerStats = await OrderResponse.aggregate([
-            {
-                $group: {
-                    _id: '$broker',
-                    count: { $sum: 1 },
-                    successCount: {
-                        $sum: { $cond: [{ $eq: ['$status', 'SUCCESS'] }, 1, 0] }
-                    }
-                }
-            }
-        ]);
+        const all = await prisma.orderResponse.findMany();
+        const overall = {
+            totalOrders: all.length,
+            successfulOrders: all.filter(o => o.status === 'SUCCESS').length,
+            failedOrders: all.filter(o => o.status === 'FAILED').length,
+            totalVolume: all.reduce((sum, o) => sum + (o.quantity || 0), 0),
+            totalValue: all.reduce((sum, o) => sum + (o.price || 0) * (o.quantity || 0), 0)
+        };
+        const brokerStatsMap = new Map();
+        for (const o of all) {
+            const b = o.broker || 'UNKNOWN';
+            const curr = brokerStatsMap.get(b) || { _id: b, count: 0, successCount: 0 };
+            curr.count += 1;
+            if (o.status === 'SUCCESS') curr.successCount += 1;
+            brokerStatsMap.set(b, curr);
+        }
+        const brokerStats = Array.from(brokerStatsMap.values());
 
         res.json({
             success: true,
@@ -138,7 +135,8 @@ router.get('/stats/summary', async (req, res) => {
 // Delete order response
 router.delete('/:id', async (req, res) => {
     try {
-        const orderResponse = await OrderResponse.findByIdAndDelete(req.params.id);
+        const id = parseInt(req.params.id, 10);
+        const orderResponse = await prisma.orderResponse.delete({ where: { id } });
         
         if (!orderResponse) {
             return res.status(404).json({

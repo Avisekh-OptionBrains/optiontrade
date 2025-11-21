@@ -1,0 +1,1518 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DIRECT_URL")
+}
+
+model AdminUser {
+  id               Int       @id @default(autoincrement())
+  email            String    @unique
+  isAuthorized     Boolean   @default(false)
+  lastLogin        DateTime?
+  loginAttempts    Int       @default(0)
+  lastLoginAttempt DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}
+
+model OTP {
+  id        Int      @id @default(autoincrement())
+  email     String
+  otp       String
+  expiresAt DateTime
+  verified  Boolean  @default(false)
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email, verified])
+}
+
+model AuthToken {
+  id        Int      @id @default(autoincrement())
+  email     String
+  token     String   @unique
+  expiresAt DateTime
+  isActive  Boolean  @default(true)
+  lastUsed  DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email, isActive])
+}
+
+model IIFLUser {
+  id               Int       @id @default(autoincrement())
+  email            String
+  phoneNumber      String
+  clientName       String
+  userID           String    @unique
+  password         String
+  appKey           String
+  appSecret        String
+  totpSecret       String
+  state            String    @default("live")
+  loginStatus      String    @default("pending")
+  tradingStatus    String    @default("active")
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  capital          Float?
+  clientType       String?
+  exchangeList     Json?
+  isInvestorClient Boolean?
+  lastLoginTime    DateTime?
+  token            String?
+  tokenValidity    DateTime?
+
+  @@index([state])
+  @@index([userID])
+}
+
+model OrderResponse {
+  id              Int      @id @default(autoincrement())
+  clientName      String
+  broker          String
+  symbol          String
+  transactionType String
+  orderType       String
+  price           Float
+  quantity        Int
+  status          String
+  orderId         String?
+  uniqueOrderId   String?  @unique
+  message         String?
+  timestamp       DateTime @default(now())
+  response        Json?
+  apiKey          String?
+
+  @@index([broker])
+  @@index([clientName])
+  @@index([status])
+  @@index([symbol])
+  @@index([timestamp])
+}
+
+model Client {
+  id       String @id
+  apiKey   String
+  capital  Int
+  clientId String
+  jwtToken String
+}
+
+model Trade {
+  id        Int      @id @default(autoincrement())
+  strategy  String
+  signal    Json
+  orders    Json
+  results   Json
+  status    String   @default("PENDING")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([createdAt])
+  @@index([status])
+  @@index([strategy])
+}
+
+model OptionTradeSubscription {
+  id             Int       @id @default(autoincrement())
+  userID         String
+  enabled        Boolean   @default(true)
+  lotSize        Int       @default(1)
+  allowedSymbols Json?
+  customSettings Json?
+  totalTrades    Int       @default(0)
+  lastTradeDate  DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([userID, enabled])
+  @@index([userID, enabled])
+}
+
+model BankNiftySubscription {
+  id             Int       @id @default(autoincrement())
+  userID         String
+  enabled        Boolean   @default(true)
+  lotSize        Int       @default(1)
+  allowedSymbols Json?
+  customSettings Json?
+  totalTrades    Int       @default(0)
+  lastTradeDate  DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([userID, enabled])
+  @@index([userID, enabled])
+}
+
+model EpicriseSubscription {
+  id             Int       @id @default(autoincrement())
+  userID         String
+  enabled        Boolean   @default(true)
+  capital        Float
+  maxPositions   Int       @default(1)
+  riskPerTrade   Float     @default(2)
+  allowedSymbols Json?
+  customSettings Json?
+  totalTrades    Int       @default(0)
+  lastTradeDate  DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([userID, enabled])
+  @@index([userID, enabled])
+}
+
+model BrokerAccount {
+  id                     String                   @id @default(uuid())
+  userId                 String
+  brokerType             BrokerType
+  clientId               String
+  clientName             String
+  isActive               Boolean                  @default(true)
+  credentials            String
+  isConnected            Boolean                  @default(false)
+  lastConnected          DateTime?
+  connectionError        String?
+  allocatedCapital       Decimal?                 @db.Decimal(15, 2)
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime                 @updatedAt
+  User                   User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  brokerTokens           BrokerToken[]
+  strategy_subscriptions strategy_subscriptions[]
+
+  @@unique([userId, brokerType, clientId])
+  @@map("broker_accounts")
+}
+
+model BrokerToken {
+  id                     String                  @id @default(uuid())
+  userId                 String
+  brokerAccountId        String
+  strategyId             String
+  subscriptionId         String?
+  accessToken            String
+  refreshToken           String?
+  tokenType              String
+  expiresAt              DateTime
+  allocatedCapital       Decimal                 @db.Decimal(15, 2)
+  isActive               Boolean                 @default(true)
+  lastUsed               DateTime?
+  usageCount             Int                     @default(0)
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  brokerAccount          BrokerAccount           @relation(fields: [brokerAccountId], references: [id], onDelete: Cascade)
+  strategy_subscriptions strategy_subscriptions? @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  User                   User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, brokerAccountId, strategyId])
+  @@index([userId])
+  @@index([brokerAccountId])
+  @@index([strategyId])
+  @@index([isActive])
+  @@index([expiresAt])
+  @@map("broker_tokens")
+}
+
+model Account {
+  id                String  @id
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  User              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model AngelClient {
+  id           String   @id
+  apiKey       String
+  capital      Int
+  clientName   String
+  createdAt    DateTime @default(now())
+  email        String
+  feedToken    String
+  jwtToken     String
+  password     String
+  phoneNumber  String
+  refreshToken String
+  state        String
+  totpKey      String
+  updatedAt    DateTime
+  userId       String
+}
+
+model MotilalUser {
+  id          String   @id
+  apiKey      String
+  authToken   String
+  capital     Int
+  clientName  String
+  createdAt   DateTime @default(now())
+  email       String
+  password    String
+  phoneNumber String
+  totpKey     String
+  twoFA       String
+  updatedAt   DateTime
+  userId      String
+}
+
+model OrderDetails {
+  id        String   @id
+  apiKey    String
+  jwtToken  String
+  message   String
+  response  Json
+  script    String?
+  status    Boolean
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+}
+
+model OrderParsedMessage {
+  id        String   @id
+  clientId  String?
+  createdAt DateTime @default(now())
+  details   Json
+  orderType String
+  routeName String
+}
+
+model Session {
+  id           String   @id
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  User         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model TotalScript {
+  id             String @id
+  exch_seg       String
+  expiry         String
+  instrumenttype String
+  lotsize        String
+  name           String
+  strike         String
+  symbol         String
+  tick_size      String
+  token          String
+}
+
+model User {
+  id                                                                      String                           @id
+  name                                                                    String?
+  email                                                                   String?                          @unique
+  emailVerified                                                           DateTime?
+  image                                                                   String?
+  password                                                                String?
+  role                                                                    Role                             @default(USER)
+  verificationToken                                                       String?                          @unique
+  verificationTokenExpiry                                                 DateTime?
+  dateOfBirth                                                             DateTime?
+  gender                                                                  String?
+  phoneNumber                                                             String?
+  profession                                                              String?
+  subscriptionPlan                                                        String?
+  subscriptionStatus                                                      String?
+  subscriptionStart                                                       DateTime?
+  subscriptionEnd                                                         DateTime?
+  subscriptionAmount                                                      Int?
+  createdAt                                                               DateTime                         @default(now())
+  updatedAt                                                               DateTime
+  Account                                                                 Account[]
+  Session                                                                 Session[]
+  access_requests                                                         access_requests[]
+  broker_accounts                                                         BrokerAccount[]
+  broker_tokens                                                           BrokerToken[]
+  broker_users                                                            broker_users[]
+  customers                                                               customers?
+  discount_usages                                                         discount_usages[]
+  execution_orders                                                        execution_orders[]
+  fno_subscriptions                                                       fno_subscriptions[]
+  indicator_subscriptions_indicator_subscriptions_access_granted_byToUser indicator_subscriptions[]        @relation("indicator_subscriptions_access_granted_byToUser")
+  indicator_subscriptions_indicator_subscriptions_rejected_byToUser       indicator_subscriptions[]        @relation("indicator_subscriptions_rejected_byToUser")
+  indicator_subscriptions_indicator_subscriptions_user_idToUser           indicator_subscriptions[]        @relation("indicator_subscriptions_user_idToUser")
+  indicators_indicators_created_byToUser                                  indicators[]                     @relation("indicators_created_byToUser")
+  indicators_indicators_updated_byToUser                                  indicators[]                     @relation("indicators_updated_byToUser")
+  investment_subscriptions                                                investment_subscriptions[]
+  kyc_verifications                                                       kyc_verifications[]
+  notification_deliveries                                                 notification_deliveries[]
+  notifications                                                           notifications[]
+  orders                                                                  orders[]
+  research_report_comment_likes                                           research_report_comment_likes[]
+  research_report_comments                                                research_report_comments[]
+  research_report_likes                                                   research_report_likes[]
+  research_reports_research_reports_created_byToUser                      research_reports[]               @relation("research_reports_created_byToUser")
+  research_reports_research_reports_updated_byToUser                      research_reports[]               @relation("research_reports_updated_byToUser")
+  research_subscriptions                                                  research_subscriptions[]
+  strategy_subscriptions                                                  strategy_subscriptions[]
+  strategy_tokens                                                         strategy_tokens[]
+  trades                                                                  trades[]
+  unified_research_subscriptions                                          unified_research_subscriptions[]
+}
+
+model VerificationToken {
+  id         String   @id
+  identifier String
+  token      String   @unique
+  expires    DateTime
+  metadata   String?
+
+  @@unique([identifier, token])
+}
+
+model access_requests {
+  id        String   @id
+  userId    String
+  value     String
+  status    String   @default("pending")
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+  User      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([userId])
+}
+
+model authors {
+  id               String             @id @db.Uuid
+  name             String             @db.VarChar(255)
+  email            String             @unique @db.VarChar(255)
+  bio              String?
+  image            String?            @db.VarChar(500)
+  profession       String?            @db.VarChar(255)
+  expertise        String[]           @default([])
+  is_active        Boolean            @default(true)
+  created_at       DateTime           @default(now())
+  updated_at       DateTime
+  experience       String?            @db.VarChar(255)
+  facebook_url     String?            @db.VarChar(500)
+  github_url       String?            @db.VarChar(500)
+  instagram_url    String?            @db.VarChar(500)
+  linkedin_url     String?            @db.VarChar(500)
+  location         String?            @db.VarChar(255)
+  telegram_url     String?            @db.VarChar(500)
+  twitter_url      String?            @db.VarChar(500)
+  website_url      String?            @db.VarChar(500)
+  youtube_url      String?            @db.VarChar(500)
+  research_reports research_reports[]
+
+  @@index([email])
+  @@index([is_active])
+}
+
+model broker_users {
+  id                    String     @id
+  userId                String
+  brokerType            BrokerType
+  email                 String
+  phoneNumber           String?
+  clientName            String
+  brokerClientId        String
+  authData              Json
+  capital               Float      @default(0)
+  brokerSpecificData    Json       @default("{}")
+  state                 String     @default("live")
+  isActive              Boolean    @default(true)
+  lastLoginTime         DateTime?
+  loginStatus           String?
+  tradingStatus         String?
+  strategySubscriptions Json       @default("[]")
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime
+  User                  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, brokerType, brokerClientId])
+  @@index([brokerClientId])
+  @@index([brokerType])
+  @@index([email])
+  @@index([isActive])
+  @@index([userId])
+}
+
+model complaints {
+  id             String    @id
+  name           String
+  email          String
+  phone          String?
+  category       String
+  subject        String
+  description    String
+  status         String    @default("pending")
+  priority       String    @default("medium")
+  assignedTo     String?
+  resolution     String?
+  resolutionTime Int?
+  isEscalated    Boolean   @default(false)
+  escalatedAt    DateTime?
+  resolvedAt     DateTime?
+  clientId       String?
+  attachments    String?
+  internalNotes  String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime
+}
+
+model contacts {
+  id         String    @id
+  name       String
+  email      String
+  location   String
+  subject    String
+  message    String
+  status     String    @default("new")
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime
+  assignedTo String?
+  priority   String    @default("medium")
+  response   String?
+  responseAt DateTime?
+  phone      String?
+}
+
+model customers {
+  id                 String          @id
+  razorpayCustomerId String?         @unique
+  userId             String?         @unique
+  name               String?
+  email              String?
+  contact            String?
+  notes              Json?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime
+  User               User?           @relation(fields: [userId], references: [id])
+  subscriptions      subscriptions[]
+}
+
+model discount_codes {
+  id              String            @id
+  code            String            @unique
+  type            DiscountType
+  value           Decimal           @db.Decimal(10, 2)
+  scope           DiscountScope     @default(ALL_PRODUCTS)
+  productIds      String[]          @default([])
+  category        String?
+  maxUses         Int?
+  currentUses     Int               @default(0)
+  maxUsesPerUser  Int?
+  minOrderAmount  Decimal?          @db.Decimal(10, 2)
+  validFrom       DateTime          @default(now())
+  validUntil      DateTime?
+  isActive        Boolean           @default(true)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime
+  discount_usages discount_usages[]
+
+  @@index([code])
+  @@index([isActive])
+  @@index([validFrom, validUntil])
+}
+
+model discount_usages {
+  id             String         @id
+  discountCodeId String
+  userId         String
+  orderId        String?
+  discountAmount Decimal        @db.Decimal(10, 2)
+  originalAmount Decimal        @db.Decimal(10, 2)
+  finalAmount    Decimal        @db.Decimal(10, 2)
+  createdAt      DateTime       @default(now())
+  discount_codes discount_codes @relation(fields: [discountCodeId], references: [id], onDelete: Cascade)
+  User           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([discountCodeId])
+  @@index([orderId])
+  @@index([userId])
+}
+
+model execution_orders {
+  id              String           @id
+  userId          String
+  tokenId         String?
+  orderId         String?
+  clientId        String
+  orderType       String
+  routeName       String?
+  symbol          String?
+  quantity        Int?
+  price           Float?
+  stopLoss        Float?
+  target          Float?
+  status          String           @default("pending")
+  brokerResponse  Json?
+  errorMessage    String?
+  strategyType    String?
+  signalData      Json?
+  originalMessage String?
+  executionTime   DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime
+  strategy_tokens strategy_tokens? @relation(fields: [tokenId], references: [id])
+  User            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@index([createdAt])
+  @@index([status])
+  @@index([strategyType])
+  @@index([tokenId])
+  @@index([userId])
+}
+
+model fno_calls {
+  id                  String       @id
+  day                 DateTime
+  time                DateTime
+  script              String
+  strikePrice         Decimal      @db.Decimal(15, 4)
+  expiryDate          DateTime
+  optionType          String
+  quantity            Int
+  entryPrice          Decimal      @db.Decimal(15, 4)
+  exitPrice           Decimal?     @db.Decimal(15, 4)
+  ltp                 Decimal?     @db.Decimal(15, 4)
+  target              Decimal?     @db.Decimal(15, 4)
+  stopLoss            Decimal?     @db.Decimal(15, 4)
+  profitLossRs        Decimal?     @db.Decimal(15, 2)
+  profitLossPercent   Decimal?     @db.Decimal(8, 4)
+  outcome             TradeOutcome @default(ONGOING)
+  exitDate            DateTime?
+  exitTime            DateTime?
+  notes               String?
+  chartImageUrl       String?
+  isRecommended       Boolean      @default(false)
+  recommendedBy       String?
+  recommendationNotes String?
+  createdBy           String?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime
+  optionCategory      String       @default("Intraday") @db.VarChar(50)
+
+  @@index([expiryDate])
+  @@index([isRecommended])
+  @@index([outcome])
+  @@index([script])
+}
+
+model fno_plans {
+  id                String              @id
+  name              String              @db.VarChar(255)
+  description       String
+  duration          Int
+  price             Int
+  original_price    Int?
+  features          String[]            @default([])
+  is_popular        Boolean             @default(false)
+  is_active         Boolean             @default(false)
+  sort_order        Int                 @default(0)
+  created_at        DateTime            @default(now())
+  updated_at        DateTime
+  fno_subscriptions fno_subscriptions[]
+
+  @@index([is_active])
+  @@index([sort_order])
+}
+
+model fno_strategies {
+  id              String    @id
+  strategyName    String    @db.VarChar(255)
+  underlying      String    @db.VarChar(50)
+  category        String    @db.VarChar(50)
+  tags            String[]  @default([])
+  expiryDate      DateTime
+  legs            Json
+  totalPremium    Decimal   @db.Decimal(15, 2)
+  maxProfit       Decimal   @db.Decimal(15, 2)
+  maxLoss         Decimal   @db.Decimal(15, 2)
+  breakevens      Decimal[] @default(dbgenerated("(ARRAY[]::numeric[])::numeric(65,30)[]"))
+  riskRewardRatio String?   @db.VarChar(50)
+  chartImageUrl   String?
+  description     String?
+  status          String    @default("draft") @db.VarChar(50)
+  isRecommended   Boolean   @default(false)
+  createdBy       String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime
+
+  @@index([expiryDate])
+  @@index([isRecommended])
+  @@index([status])
+  @@index([underlying])
+}
+
+model fno_subscriptions {
+  id         String    @id
+  user_id    String
+  plan_id    String
+  plan_name  String    @db.VarChar(255)
+  plan_price Int
+  duration   Int
+  status     String    @default("ACTIVE") @db.VarChar(50)
+  start_date DateTime  @default(now())
+  end_date   DateTime
+  order_id   String?
+  created_at DateTime  @default(now())
+  updated_at DateTime
+  fno_plans  fno_plans @relation(fields: [plan_id], references: [id], onDelete: Cascade)
+  User       User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([end_date])
+  @@index([status])
+  @@index([user_id])
+}
+
+model indicator_subscriptions {
+  id                                                   String     @id
+  user_id                                              String
+  status                                               String     @default("ACTIVE") @db.VarChar(50)
+  trading_view_id                                      String?    @db.VarChar(255)
+  phone_number                                         String?    @db.VarChar(20)
+  email_id                                             String?    @db.VarChar(255)
+  access_granted_at                                    DateTime?
+  expires_at                                           DateTime?
+  created_at                                           DateTime   @default(now())
+  updated_at                                           DateTime
+  indicator_id                                         String     @db.Uuid
+  planPrice                                            Int
+  planType                                             String     @db.VarChar(50)
+  access_granted_by                                    String?
+  access_status                                        String     @default("PENDING") @db.VarChar(50)
+  rejected_at                                          DateTime?
+  rejected_by                                          String?
+  rejection_reason                                     String?
+  trading_view_id_locked                               Boolean    @default(false)
+  User_indicator_subscriptions_access_granted_byToUser User?      @relation("indicator_subscriptions_access_granted_byToUser", fields: [access_granted_by], references: [id])
+  indicators                                           indicators @relation(fields: [indicator_id], references: [id], onDelete: Cascade)
+  User_indicator_subscriptions_rejected_byToUser       User?      @relation("indicator_subscriptions_rejected_byToUser", fields: [rejected_by], references: [id])
+  User_indicator_subscriptions_user_idToUser           User       @relation("indicator_subscriptions_user_idToUser", fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, indicator_id])
+  @@index([access_status])
+  @@index([indicator_id])
+  @@index([status])
+  @@index([user_id])
+}
+
+model indicators {
+  id                               String                    @id @db.Uuid
+  name                             String                    @db.VarChar(255)
+  slug                             String                    @unique @db.VarChar(255)
+  category                         String                    @db.VarChar(100)
+  type                             String                    @db.VarChar(100)
+  description                      String
+  detailed_description             String?
+  features                         String[]                  @default([])
+  price                            Int                       @default(0)
+  original_price                   Int?
+  is_popular                       Boolean                   @default(false)
+  is_premium                       Boolean                   @default(false)
+  is_active                        Boolean                   @default(true)
+  rating                           Decimal                   @default(0.0) @db.Decimal(3, 2)
+  users_count                      Int                       @default(0)
+  tags                             String[]                  @default([])
+  technical_specs                  Json?
+  screenshots                      String[]                  @default([])
+  video_url                        String?                   @db.VarChar(500)
+  documentation                    String?
+  created_at                       DateTime                  @default(now())
+  updated_at                       DateTime
+  created_by                       String?
+  updated_by                       String?
+  trading_view_link                String?                   @db.VarChar(500)
+  indicator_subscriptions          indicator_subscriptions[]
+  User_indicators_created_byToUser User?                     @relation("indicators_created_byToUser", fields: [created_by], references: [id])
+  User_indicators_updated_byToUser User?                     @relation("indicators_updated_byToUser", fields: [updated_by], references: [id])
+
+  @@index([category])
+  @@index([is_active])
+  @@index([is_popular])
+  @@index([slug])
+  @@index([type])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model investment_call_updates {
+  id               String           @id
+  callId           String
+  updateType       String
+  oldTarget        Decimal?         @db.Decimal(15, 4)
+  newTarget        Decimal?         @db.Decimal(15, 4)
+  oldStoploss      Decimal?         @db.Decimal(15, 4)
+  newStoploss      Decimal?         @db.Decimal(15, 4)
+  oldStatus        String?
+  newStatus        String?
+  remarks          String?
+  updatedBy        String?
+  createdAt        DateTime         @default(now())
+  investment_calls investment_calls @relation(fields: [callId], references: [id], onDelete: Cascade)
+
+  @@index([callId])
+  @@index([createdAt])
+  @@index([updateType])
+}
+
+model investment_calls {
+  id                      String                    @id
+  day                     DateTime
+  time                    DateTime
+  script                  String
+  tradeType               TradeType
+  quantity                Int
+  entryPrice              Decimal                   @db.Decimal(15, 4)
+  exitPrice               Decimal?                  @db.Decimal(15, 4)
+  ltp                     Decimal?                  @db.Decimal(15, 4)
+  target                  Decimal?                  @db.Decimal(15, 4)
+  stopLoss                Decimal?                  @db.Decimal(15, 4)
+  expectedHoldingPeriod   String?
+  profitLossRs            Decimal?                  @db.Decimal(15, 2)
+  profitLossPercent       Decimal?                  @db.Decimal(8, 4)
+  outcome                 TradeOutcome              @default(ONGOING)
+  exitDate                DateTime?
+  exitTime                DateTime?
+  notes                   String?
+  chartImageUrl           String?
+  isRecommended           Boolean                   @default(false)
+  recommendedBy           String?
+  recommendationNotes     String?
+  createdBy               String?
+  createdAt               DateTime                  @default(now())
+  updatedAt               DateTime
+  category                String?
+  currentPrice            Decimal?                  @db.Decimal(15, 4)
+  duration                String?
+  investmentType          String?
+  pdfReportUrl            String?
+  rationale               String?
+  riskLevel               String?
+  sector                  String?
+  tags                    String?
+  title                   String?
+  chartImagePath          String?
+  marketCap               String?
+  pdfReportPath           String?
+  securityId              String?
+  symbolName              String?
+  investment_call_updates investment_call_updates[]
+
+  @@index([isRecommended])
+  @@index([outcome])
+  @@index([riskLevel])
+  @@index([script])
+  @@index([sector])
+  @@index([tradeType])
+}
+
+model investment_plans {
+  id                       String                     @id
+  name                     String                     @db.VarChar(255)
+  description              String
+  duration                 Int
+  price                    Int
+  original_price           Int?
+  features                 String[]                   @default([])
+  is_popular               Boolean                    @default(false)
+  is_active                Boolean                    @default(false)
+  sort_order               Int                        @default(0)
+  created_at               DateTime                   @default(now())
+  updated_at               DateTime
+  investment_subscriptions investment_subscriptions[]
+
+  @@index([is_active])
+  @@index([sort_order])
+}
+
+model investment_subscriptions {
+  id               String           @id
+  user_id          String
+  plan_id          String
+  plan_name        String           @db.VarChar(255)
+  plan_price       Int
+  duration         Int
+  status           String           @default("ACTIVE") @db.VarChar(50)
+  start_date       DateTime         @default(now())
+  end_date         DateTime
+  order_id         String?
+  created_at       DateTime         @default(now())
+  updated_at       DateTime
+  investment_plans investment_plans @relation(fields: [plan_id], references: [id], onDelete: Cascade)
+  User             User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([end_date])
+  @@index([status])
+  @@index([user_id])
+}
+
+model kyc_verifications {
+  id                    String    @id
+  user_id               String
+  full_name             String?
+  phone_number          String?
+  digio_request_id      String?
+  gateway_token         String?
+  status                String    @default("pending")
+  submitted_at          DateTime?
+  completed_at          DateTime?
+  documents             Json?
+  verification_data     Json?
+  documents_stored      Boolean   @default(false)
+  created_at            DateTime  @default(now())
+  updated_at            DateTime
+  documents_downloading Boolean   @default(false)
+  User                  User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([digio_request_id])
+  @@index([status])
+  @@index([user_id])
+}
+
+model notification_deliveries {
+  id             String         @id
+  notificationId String
+  userId         String
+  deliveredAt    DateTime?
+  openedAt       DateTime?
+  clickedAt      DateTime?
+  errorMessage   String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime
+  retryCount     Int            @default(0)
+  status         DeliveryStatus @default(PENDING)
+  notifications  notifications  @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  User           User           @relation(fields: [userId], references: [id])
+
+  @@unique([notificationId, userId])
+  @@index([status])
+  @@index([userId])
+}
+
+model notifications {
+  id                      String                    @id
+  title                   String
+  message                 String
+  type                    NotificationType          @default(INFO)
+  status                  NotificationStatus        @default(DRAFT)
+  priority                NotificationPriority      @default(NORMAL)
+  audience                NotificationAudience      @default(ALL)
+  sentAt                  DateTime?
+  createdAt               DateTime                  @default(now())
+  updatedAt               DateTime
+  totalRecipients         Int                       @default(0)
+  deliveredCount          Int                       @default(0)
+  openedCount             Int                       @default(0)
+  clickedCount            Int                       @default(0)
+  createdBy               String                    @default("admin-user-001")
+  scheduledFor            DateTime?
+  targetRoles             Role[]                    @default([])
+  targetUserIds           String[]                  @default([])
+  notification_deliveries notification_deliveries[]
+  User                    User                      @relation(fields: [createdBy], references: [id])
+
+  @@index([audience])
+  @@index([status])
+  @@index([type])
+}
+
+model orders {
+  id                String     @id
+  razorpayOrderId   String?    @unique
+  userId            String?
+  status            String     @default("created")
+  amount            Int
+  currency          String     @default("INR")
+  receipt           String?
+  notes             Json?
+  productType       String?
+  productId         String?
+  planId            String?
+  period            String?
+  customerName      String?
+  customerEmail     String?
+  customerPhone     String?
+  validatedPrice    Int?
+  checkoutSessionId String?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime
+  User              User?      @relation(fields: [userId], references: [id])
+  payments          payments[]
+
+  @@index([productId])
+  @@index([productType])
+}
+
+model partners {
+  id                 String       @id
+  name               String       @unique
+  sebiRegistrationNo String
+  websiteLink        String
+  disclosureLink     String
+  tradingFrequency   String
+  executionTime      String
+  riskManagement     String
+  isActive           Boolean      @default(true)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime
+  activeSince        String?
+  algosInMarket      Int          @default(1)
+  deployedBy         String?
+  description        String?
+  featured           Boolean      @default(false)
+  imageUrl           String?
+  strategies         strategies[]
+
+  @@index([featured])
+  @@index([isActive])
+}
+
+model payments {
+  id                String    @id
+  razorpayPaymentId String?   @unique
+  orderId           String
+  amount            Int
+  status            String    @default("created")
+  method            String?
+  captured          Boolean   @default(false)
+  fee               Int       @default(0)
+  tax               Int       @default(0)
+  email             String?
+  contact           String?
+  errorCode         String?
+  errorDescription  String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime
+  orders            orders    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  refunds           refunds[]
+}
+
+model pricing_plans {
+  id          String   @id
+  name        String
+  slug        String   @unique
+  price       Int
+  period      String?
+  description String
+  features    Json
+  isPopular   Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  color       String?
+  cta         String   @default("Get Started")
+  href        String?
+  planId      String?
+  category    String   @default("platform")
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+
+  @@index([category])
+  @@index([isActive])
+  @@index([sortOrder])
+}
+
+model refunds {
+  id               String   @id
+  razorpayRefundId String?  @unique
+  paymentId        String
+  amount           Int
+  status           String   @default("created")
+  speed            String   @default("normal")
+  reason           String?
+  notes            Json?
+  createdAt        DateTime @default(now())
+  payments         payments @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+}
+
+model research_plans {
+  id                     String                   @id
+  name                   String                   @db.VarChar(255)
+  description            String
+  duration               Int
+  price                  Int
+  original_price         Int?
+  features               String[]                 @default([])
+  is_popular             Boolean                  @default(false)
+  is_active              Boolean                  @default(true)
+  sort_order             Int                      @default(0)
+  created_at             DateTime                 @default(now())
+  updated_at             DateTime
+  category               String                   @default("premium") @db.VarChar(50)
+  research_subscriptions research_subscriptions[]
+
+  @@index([category])
+  @@index([is_active])
+  @@index([sort_order])
+}
+
+model research_report_comment_likes {
+  id                       String                   @id @db.Uuid
+  comment_id               String                   @db.Uuid
+  user_id                  String
+  is_like                  Boolean
+  created_at               DateTime                 @default(now())
+  research_report_comments research_report_comments @relation(fields: [comment_id], references: [id], onDelete: Cascade)
+  User                     User                     @relation(fields: [user_id], references: [id])
+
+  @@unique([comment_id, user_id])
+  @@index([comment_id])
+  @@index([user_id])
+}
+
+model research_report_comments {
+  id                             String                          @id @db.Uuid
+  content                        String
+  is_approved                    Boolean                         @default(false)
+  is_edited                      Boolean                         @default(false)
+  likes_count                    Int                             @default(0)
+  dislikes_count                 Int                             @default(0)
+  parent_id                      String?                         @db.Uuid
+  report_id                      String                          @db.Uuid
+  user_id                        String
+  created_at                     DateTime                        @default(now())
+  updated_at                     DateTime
+  research_report_comment_likes  research_report_comment_likes[]
+  research_report_comments       research_report_comments?       @relation("research_report_commentsToresearch_report_comments", fields: [parent_id], references: [id])
+  other_research_report_comments research_report_comments[]      @relation("research_report_commentsToresearch_report_comments")
+  research_reports               research_reports                @relation(fields: [report_id], references: [id], onDelete: Cascade)
+  User                           User                            @relation(fields: [user_id], references: [id])
+
+  @@index([created_at])
+  @@index([is_approved])
+  @@index([parent_id])
+  @@index([report_id])
+  @@index([user_id])
+}
+
+model research_report_likes {
+  id               String           @id @db.Uuid
+  report_id        String           @db.Uuid
+  user_id          String
+  created_at       DateTime         @default(now())
+  research_reports research_reports @relation(fields: [report_id], references: [id], onDelete: Cascade)
+  User             User             @relation(fields: [user_id], references: [id])
+
+  @@unique([report_id, user_id])
+  @@index([report_id])
+  @@index([user_id])
+}
+
+model research_reports {
+  id                                     String                     @id @db.Uuid
+  title                                  String                     @db.VarChar(255)
+  slug                                   String                     @unique @db.VarChar(255)
+  excerpt                                String
+  content                                String
+  category                               String                     @db.VarChar(100)
+  tags                                   String[]                   @default([])
+  image_url                              String?                    @db.VarChar(500)
+  pdf_url                                String?                    @db.VarChar(500)
+  pdf_file_name                          String?                    @db.VarChar(255)
+  read_time                              String                     @default("5 min read")
+  is_published                           Boolean                    @default(false)
+  is_featured                            Boolean                    @default(false)
+  is_premium                             Boolean                    @default(false)
+  views_count                            Int                        @default(0)
+  likes_count                            Int                        @default(0)
+  comments_count                         Int                        @default(0)
+  published_at                           DateTime?
+  created_at                             DateTime                   @default(now())
+  updated_at                             DateTime
+  created_by                             String?
+  updated_by                             String?
+  author_id                              String?                    @db.Uuid
+  research_report_comments               research_report_comments[]
+  research_report_likes                  research_report_likes[]
+  authors                                authors?                   @relation(fields: [author_id], references: [id])
+  User_research_reports_created_byToUser User?                      @relation("research_reports_created_byToUser", fields: [created_by], references: [id])
+  User_research_reports_updated_byToUser User?                      @relation("research_reports_updated_byToUser", fields: [updated_by], references: [id])
+
+  @@index([author_id])
+  @@index([category])
+  @@index([is_featured])
+  @@index([is_premium])
+  @@index([is_published])
+  @@index([published_at])
+  @@index([slug])
+}
+
+model research_subscriptions {
+  id             String         @id
+  user_id        String
+  plan_id        String
+  plan_name      String         @db.VarChar(255)
+  plan_price     Int
+  duration       Int
+  status         String         @default("ACTIVE") @db.VarChar(50)
+  start_date     DateTime       @default(now())
+  end_date       DateTime
+  order_id       String?
+  created_at     DateTime       @default(now())
+  updated_at     DateTime
+  research_plans research_plans @relation(fields: [plan_id], references: [id], onDelete: Cascade)
+  User           User           @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([end_date])
+  @@index([status])
+  @@index([user_id])
+}
+
+model sebi_audit_reports {
+  id            String    @id
+  title         String
+  description   String?
+  year          String
+  financialYear String
+  reportType    String
+  category      String?
+  fileUrl       String
+  fileName      String
+  fileSize      Int?
+  isPublished   Boolean   @default(false)
+  publishedAt   DateTime?
+  downloadCount Int       @default(0)
+  createdBy     String?
+  updatedBy     String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime
+}
+
+model strategies {
+  id                     String                   @id
+  name                   String
+  type                   StrategyType
+  description            String?
+  configuration          Json                     @default("{}")
+  monthlyPrice           Int?
+  quarterlyPrice         Int?
+  yearlyPrice            Int?
+  partnerId              String?
+  isActive               Boolean                  @default(true)
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime
+  partners               partners?                @relation(fields: [partnerId], references: [id])
+  strategy_subscriptions strategy_subscriptions[]
+
+  @@index([isActive])
+  @@index([partnerId])
+  @@index([type])
+}
+
+model strategy_subscriptions {
+  id               String         @id
+  userId           String
+  strategyId       String
+  brokerAccountId  String?
+  status           StrategyStatus @default(ACTIVE)
+  startDate        DateTime
+  endDate          DateTime
+  planId           String?
+  period           String?
+  amountPaid       Int?
+  orderId          String?
+  autoExecute      Boolean        @default(true)
+  maxRiskAmount    Decimal?       @db.Decimal(15, 2)
+  totalTrades      Int            @default(0)
+  totalPnL         Decimal        @default(0) @db.Decimal(15, 2)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime
+  allocatedCapital Decimal?       @db.Decimal(15, 2)
+  broker_tokens    BrokerToken[]
+  broker_accounts  BrokerAccount? @relation(fields: [brokerAccountId], references: [id], onDelete: Cascade)
+  strategies       strategies     @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+  User             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, strategyId])
+  @@index([period])
+  @@index([planId])
+  @@index([status])
+  @@index([strategyId])
+  @@index([userId])
+}
+
+model strategy_tokens {
+  id               String             @id
+  userId           String
+  tokenId          String             @unique
+  encryptedToken   String
+  strategyId       String
+  strategyName     String
+  subscriptionId   String
+  clientId         String
+  clientName       String
+  clientEmail      String?
+  brokerType       BrokerType
+  brokerClientId   String
+  brokerClientName String
+  allocatedCapital Float?
+  maxRiskAmount    Float?
+  autoExecute      Boolean            @default(true)
+  isActive         Boolean            @default(true)
+  lastUsed         DateTime?
+  usageCount       Int                @default(0)
+  errorCount       Int                @default(0)
+  lastError        String?
+  executionMode    String             @default("live")
+  riskManagement   Json               @default("{}")
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime
+  expiresAt        DateTime?
+  execution_orders execution_orders[]
+  User             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([brokerType])
+  @@index([isActive])
+  @@index([strategyId])
+  @@index([subscriptionId])
+  @@index([userId])
+}
+
+model subscriptions {
+  id                     String    @id
+  razorpaySubscriptionId String?   @unique
+  customerId             String
+  planId                 String
+  status                 String    @default("created")
+  currentStart           DateTime?
+  currentEnd             DateTime?
+  endedAt                DateTime?
+  totalCount             Int?
+  paidCount              Int       @default(0)
+  quantity               Int       @default(1)
+  notes                  Json?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime
+  customers              customers @relation(fields: [customerId], references: [id], onDelete: Cascade)
+}
+
+model symbol {
+  id          String  @id
+  EXCH_ID     String?
+  SECURITY_ID String?
+  ISIN        String?
+  INSTRUMENT  String?
+  SYMBOL      String?
+  SYMBOL_NAME String?
+}
+
+model trades {
+  id                       String                    @id
+  day                      DateTime
+  time                     DateTime
+  script                   String
+  tradeType                TradeType
+  quantity                 Int
+  buyingPrice              Decimal                   @db.Decimal(15, 4)
+  sellingPrice             Decimal?                  @db.Decimal(15, 4)
+  ltp                      Decimal?                  @db.Decimal(15, 4)
+  tradeValue               Decimal                   @db.Decimal(15, 2)
+  target                   Decimal?                  @db.Decimal(15, 4)
+  stopLossPrice            Decimal?                  @db.Decimal(15, 4)
+  stopLossPercent          Decimal?                  @db.Decimal(5, 2)
+  profitLossRs             Decimal?                  @db.Decimal(15, 2)
+  profitLossPercent        Decimal?                  @db.Decimal(8, 4)
+  outcome                  TradeOutcome              @default(ONGOING)
+  holdingPeriod            Int?
+  notes                    String?
+  userId                   String
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime
+  exitDate                 DateTime?
+  exitTime                 DateTime?
+  targetPercent            Decimal?                  @db.Decimal(8, 4)
+  tradeTypeCategory        String?
+  riskRewardRatio          Decimal?                  @db.Decimal(8, 4)
+  securityId               String?
+  symbolName               String?
+  chartImagePath           String?
+  chartImageUrl            String?
+  isRecommended            Boolean                   @default(false)
+  recommendationNotes      String?
+  recommendedBy            String?
+  recommendedTradeCategory RecommendedTradeCategory?
+  strategyUsed             String?
+  User                     User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([day])
+  @@index([isRecommended])
+  @@index([outcome])
+  @@index([recommendedTradeCategory])
+  @@index([script])
+  @@index([tradeType])
+  @@index([userId])
+}
+
+model unified_research_plans {
+  id                             String                           @id
+  name                           String                           @db.VarChar(255)
+  description                    String
+  duration                       Int
+  price                          Int
+  original_price                 Int?
+  features                       String[]                         @default([])
+  is_popular                     Boolean                          @default(true)
+  is_active                      Boolean                          @default(true)
+  sort_order                     Int                              @default(0)
+  created_at                     DateTime                         @default(now())
+  updated_at                     DateTime
+  unified_research_subscriptions unified_research_subscriptions[]
+
+  @@index([is_active])
+  @@index([sort_order])
+}
+
+model unified_research_subscriptions {
+  id                     String                 @id
+  user_id                String
+  plan_id                String
+  plan_name              String                 @db.VarChar(255)
+  plan_price             Int
+  duration               Int
+  status                 String                 @default("ACTIVE") @db.VarChar(50)
+  start_date             DateTime               @default(now())
+  end_date               DateTime
+  order_id               String?
+  created_at             DateTime               @default(now())
+  updated_at             DateTime
+  unified_research_plans unified_research_plans @relation(fields: [plan_id], references: [id], onDelete: Cascade)
+  User                   User                   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([end_date])
+  @@index([status])
+  @@index([user_id])
+}
+
+model webhooks {
+  id          String    @id
+  eventId     String    @unique
+  eventType   String
+  payload     Json
+  processed   Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  processedAt DateTime?
+}
+
+enum BrokerType {
+  IIFL
+  DHAN
+  MOTILAL_OSWAL
+  PENDING_SETUP
+  ZERODHA
+  UPSTOX
+}
+
+enum DeliveryStatus {
+  PENDING
+  DELIVERED
+  OPENED
+  CLICKED
+  FAILED
+  BOUNCED
+}
+
+enum DiscountScope {
+  ALL_PRODUCTS
+  SPECIFIC_PRODUCTS
+  CATEGORY
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
+enum NotificationAudience {
+  ALL
+  ACTIVE_USERS
+  PREMIUM_USERS
+  FREE_USERS
+  SPECIFIC_USERS
+  SUBSCRIBERS
+  PREMIUM
+  SPECIFIC
+  ROLE_BASED
+}
+
+enum NotificationPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum NotificationStatus {
+  DRAFT
+  SCHEDULED
+  SENDING
+  SENT
+  FAILED
+  CANCELLED
+}
+
+enum NotificationType {
+  INFO
+  SUCCESS
+  WARNING
+  ERROR
+  MARKETING
+  SYSTEM
+}
+
+enum RecommendedTradeCategory {
+  FNO
+  INVESTMENT
+  GENERAL
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum StrategyStatus {
+  ACTIVE
+  PAUSED
+  STOPPED
+  EXPIRED
+}
+
+enum StrategyType {
+  CARRY_FORWARD_STRANGLE
+  IRON_CONDOR
+  BUTTERFLY
+  STRADDLE
+  CUSTOM
+  INTRADAY
+  DAILYEQUITY
+  WEEKLY
+  MONTHLY
+  SCALPING
+  SWING
+  POSITIONAL
+}
+
+enum TradeOutcome {
+  PROFIT
+  LOSS
+  BREAKEVEN
+  ONGOING
+}
+
+enum TradeType {
+  BUY
+  SELL
+}

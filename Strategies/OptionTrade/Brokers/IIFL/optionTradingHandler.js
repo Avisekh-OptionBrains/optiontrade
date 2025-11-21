@@ -3,6 +3,7 @@ const fs = require("fs");
 const path = require("path");
 const axios = require("axios");
 const IIFLUser = require("../../../../models/IIFLUser");
+const prisma = require("../../../../prismaClient");
 const { sendMessageToTelegram } = require("../../../Epicrise/Utils/utilities");
 const { getSubscribedUsers } = require("../../../../utils/subscriptionManager");
 
@@ -144,7 +145,7 @@ const IIFL_BASE_URL = "https://api.iiflcapital.com/v1";
  * Place order for a single IIFL user for an option
  */
 async function placeOrderForUser(user, order, signal) {
-  const { clientName, token, userID, subscription } = user;
+  const { clientName, token, userID, subscription, tokenValidity } = user;
 
   console.log(`\n📊 IIFL Client: ${clientName}`);
   console.log(`   👤 User ID: ${userID}`);
@@ -152,9 +153,11 @@ async function placeOrderForUser(user, order, signal) {
   console.log(`   📊 Quantity: ${subscription.quantity} qty`);
   console.log(`   🔑 Has Token: ${!!token}`);
 
-  if (!token) {
-    console.error(`❌ Missing token for ${clientName}`);
-    return { success: false, error: `Missing token for ${clientName}`, clientName };
+  // REAL TRADING ONLY - Validate token is present and valid
+  const valid = token && tokenValidity && new Date(tokenValidity).getTime() > Date.now();
+  if (!valid) {
+    console.error(`❌ Missing/expired token for ${clientName} - CANNOT PLACE ORDER`);
+    return { success: false, error: `Missing/expired token for ${clientName}`, clientName };
   }
 
   if (!subscription || !subscription.quantity) {
@@ -204,41 +207,41 @@ async function placeOrderForUser(user, order, signal) {
 
     // Save order response to database
     try {
-      const OrderResponse = require('../../../../models/OrderResponse');
 
-      // Extract order ID from response (IIFL returns array of order responses)
+      // Extract order ID from response (IIFL returns result array with brokerOrderId)
       let orderIdValue = null;
       let uniqueOrderIdValue = null;
       let statusValue = "SUCCESS"; // If we reach here, API call was successful
 
-      if (response.data && Array.isArray(response.data) && response.data.length > 0) {
-        const firstOrder = response.data[0];
-        orderIdValue = firstOrder.orderId || firstOrder.OrderId || firstOrder.order_id || null;
-        uniqueOrderIdValue = firstOrder.uniqueOrderId || firstOrder.UniqueOrderId || firstOrder.unique_order_id || null;
+      // IIFL API returns: { status: "Ok", message: "Success", result: [{ brokerOrderId: "...", ... }] }
+      if (response.data && response.data.result && Array.isArray(response.data.result) && response.data.result.length > 0) {
+        const firstOrder = response.data.result[0];
+        orderIdValue = firstOrder.brokerOrderId || firstOrder.BrokerOrderId || null;
+        uniqueOrderIdValue = firstOrder.exchangeOrderId || firstOrder.ExchangeOrderId || null;
 
         // Check if order was rejected by exchange
-        if (firstOrder.status === 'REJECTED' || firstOrder.Status === 'REJECTED') {
+        if (firstOrder.status === 'REJECTED' || firstOrder.Status === 'REJECTED' || firstOrder.status === 'Rejected') {
           statusValue = "FAILED";
         }
       }
 
-      const orderResponse = new OrderResponse({
-        clientName: clientName,
-        broker: "IIFL",
-        symbol: `NIFTY ${order.type} ${order.strike}`,
-        transactionType: order.action.toUpperCase(),
-        orderType: "LIMIT",
-        price: order.price,
-        quantity: quantity,
-        status: statusValue,
-        orderId: orderIdValue,
-        uniqueOrderId: uniqueOrderIdValue,
-        message: `BB TRAP OptionTrade ${order.action} ${order.type} ${order.strike}`,
-        response: response.data,
-        timestamp: new Date()
+      await prisma.orderResponse.create({
+        data: {
+          clientName: clientName,
+          broker: "IIFL",
+          symbol: `NIFTY ${order.type} ${order.strike}`,
+          transactionType: order.action.toUpperCase(),
+          orderType: "LIMIT",
+          price: order.price,
+          quantity: quantity,
+          status: statusValue,
+          orderId: orderIdValue,
+          uniqueOrderId: uniqueOrderIdValue,
+          message: `BB TRAP OptionTrade ${order.action} ${order.type} ${order.strike}`,
+          response: response.data,
+          timestamp: new Date()
+        }
       });
-
-      await orderResponse.save();
       console.log(`💾 Order response saved to database for ${clientName} - Status: ${statusValue}`);
     } catch (dbError) {
       console.error(`❌ Error saving order response to database for ${clientName}:`, dbError.message);
@@ -260,22 +263,23 @@ async function placeOrderForUser(user, order, signal) {
 
     // Save failed order response to database
     try {
-      const OrderResponse = require('../../../../models/OrderResponse');
-      const failedOrderResponse = new OrderResponse({
-        clientName: clientName,
-        broker: "IIFL",
-        symbol: `NIFTY ${order.type} ${order.strike}`,
-        transactionType: order.action.toUpperCase(),
-        orderType: "LIMIT",
-        price: order.price,
-        quantity: subscription.quantity,
-        status: "FAILED",
-        message: `BB TRAP OptionTrade ${order.action} ${order.type} ${order.strike} - FAILED`,
-        response: { error: error.response?.data || error.message },
-        timestamp: new Date()
+      await prisma.orderResponse.create({
+        data: {
+          clientName: clientName,
+          broker: "IIFL",
+          symbol: `NIFTY ${order.type} ${order.strike}`,
+          transactionType: order.action.toUpperCase(),
+          orderType: "LIMIT",
+          price: order.price,
+          quantity: subscription.quantity,
+          status: "FAILED",
+          orderId: null,
+          uniqueOrderId: null,
+          message: `BB TRAP OptionTrade ${order.action} ${order.type} ${order.strike} - FAILED`,
+          response: { error: error.response?.data || error.message },
+          timestamp: new Date()
+        }
       });
-
-      await failedOrderResponse.save();
       console.log(`💾 Failed order response saved to database for ${clientName}`);
     } catch (dbError) {
       console.error(`❌ Error saving failed order response to database for ${clientName}:`, dbError.message);
@@ -438,23 +442,19 @@ async function sendTelegramNotification(signal, orders, results) {
  */
 async function getActiveTradesToday(symbol) {
   try {
-    const Trade = require("../../../../models/Trade");
-
-    // Normalize symbol: "NIFTY" or "NIFTY1!" both match
-    const symbolPattern = symbol.replace(/1!$/, ''); // Remove "1!" if present
-    const symbolRegex = new RegExp(`^${symbolPattern}(1!)?$`, 'i');
-
-    // Find ALL active trades for this symbol (not just today's)
-    // This allows squaring off positions from previous days
-    const activeTrades = await Trade.find({
-      'signal.symbol': symbolRegex,
-      status: 'ACTIVE'
-    }).sort({ createdAt: -1 });
+    const symbolPattern = symbol.replace(/1!$/, '');
+    const activeTradesAll = await prisma.trade.findMany({ where: { status: 'ACTIVE' }, orderBy: { createdAt: 'desc' } });
+    const activeTrades = activeTradesAll.filter(t => {
+      const s = t.signal && (t.signal.symbol || (typeof t.signal === 'object' && t.signal.symbol));
+      if (!s) return false;
+      const normalized = String(s).replace(/1!$/, '');
+      return normalized.toLowerCase() === symbolPattern.toLowerCase();
+    });
 
     console.log(`\n📊 Found ${activeTrades.length} active trade(s) for ${symbol}`);
 
     if (activeTrades.length > 0) {
-      console.log(`   Most recent: ${activeTrades[0].signal.action.toUpperCase()} from ${activeTrades[0].createdAt.toLocaleString()}`);
+      console.log(`   Most recent: ${activeTrades[0].signal.action.toUpperCase()} from ${new Date(activeTrades[0].createdAt).toLocaleString()}`);
     }
 
     return activeTrades;
@@ -734,12 +734,11 @@ async function squareOffPositions(activeTrade, dhanClient, securityMap) {
 
     console.log(`\n📊 Square-off Summary: ${successful} successful, ${failed} failed out of ${results.length} total orders`);
 
-    // Update the active trade status to COMPLETED
+  // Update the active trade status to COMPLETED
     try {
-      const Trade = require("../../../../models/Trade");
-      await Trade.findByIdAndUpdate(activeTrade._id, {
-        status: 'COMPLETED',
-        updatedAt: new Date()
+      await prisma.trade.update({
+        where: { id: activeTrade.id },
+        data: { status: 'COMPLETED', updatedAt: new Date() }
       });
       console.log(`✅ Previous trade marked as COMPLETED`);
     } catch (error) {
@@ -766,22 +765,17 @@ async function squareOffPositions(activeTrade, dhanClient, securityMap) {
  */
 async function saveTradeToDatabase(signal, orders, results) {
   try {
-    // Try to save to MongoDB
-    const Trade = require("../../../../models/Trade");
-
-    // Trade is ACTIVE if strategy calculated successfully
-    // Even if broker execution failed, the trade is still tracked
-    const trade = new Trade({
-      strategy: "BB TRAP",
-      signal: signal,
-      orders: orders,
-      results: results,
-      status: "ACTIVE", // Always ACTIVE - strategy calculated the trade
+    const trade = await prisma.trade.create({
+      data: {
+        strategy: "BB TRAP",
+        signal: signal,
+        orders: orders,
+        results: results,
+        status: "ACTIVE"
+      }
     });
 
-    await trade.save();
-
-    console.log(`✅ Trade saved to database with ID: ${trade._id}`);
+    console.log(`✅ Trade saved to database with ID: ${trade.id}`);
     console.log(`   Status: ACTIVE (strategy-based, independent of broker execution)`);
     return trade;
   } catch (error) {

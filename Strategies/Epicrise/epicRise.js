@@ -2,10 +2,6 @@ const express = require("express");
 const crypto = require("crypto");
 const router = express.Router();
 
-const MotilalRouter = require("./Brokers/MotilalOswal/Motilal.js");
-const AngelRouter = require("./Brokers/AngelOne/Angel.js");
-const DhanRouter = require("./Brokers/Dhan/Dhan.js");
-const ShareKhanRouter = require("./Brokers/ShareKhan/ShareKhan.js");
 const IIFLRouter = require("./Brokers/IIFL/IIFL");
 const TelegramRouter = require("./Utils/telegram.js");
 
@@ -74,12 +70,8 @@ router.post("/", async (req, res) => {
     console.log("🚀 FORWARDING REQUEST TO ALL BROKERS");
     console.log("=".repeat(60));
 
-    // Define active broker routes (only include brokers that are actually being called)
+    // Define active broker routes (only IIFL broker)
     const activeBrokerRoutes = [
-      { name: "MOTILAL OSWAL", url: "/Epicrise/MotilalOswal" },
-      { name: "ANGEL ONE", url: "/Epicrise/AngelOne" },
-      { name: "DHAN", url: "/Epicrise/Dhan" },
-      // { name: "SHAREKHAN", url: "/Epicrise/ShareKhan" }, // Commented out - not active
       { name: "IIFL", url: "/Epicrise/IIFL" },
       { name: "TELEGRAM", url: "/Epicrise/Telegram" }
     ];
@@ -90,10 +82,6 @@ router.post("/", async (req, res) => {
     });
 
     const results = await Promise.allSettled([
-      forwardRequest(req, webhookData, "/Epicrise/MotilalOswal"),
-      forwardRequest(req, webhookData, "/Epicrise/AngelOne"),
-      forwardRequest(req, webhookData, "/Epicrise/Dhan"),
-      // forwardRequest(req, webhookData, "/Epicrise/ShareKhan"), // Commented out - not active
       forwardRequest(req, webhookData, "/Epicrise/IIFL"),
       forwardRequest(req, webhookData, "/Epicrise/Telegram"),
     ]);
@@ -198,10 +186,6 @@ router.post("/", async (req, res) => {
 });
 
 // Attach child routes
-router.use("/MotilalOswal", MotilalRouter);
-router.use("/AngelOne", AngelRouter);
-router.use("/Dhan", DhanRouter);
-router.use("/ShareKhan", ShareKhanRouter);
 router.use("/IIFL", IIFLRouter);
 router.use("/Telegram", TelegramRouter);
 

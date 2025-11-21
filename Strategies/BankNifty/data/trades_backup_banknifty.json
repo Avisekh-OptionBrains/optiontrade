@@ -334,5 +334,241 @@
     ],
     "status": "ACTIVE",
     "timestamp": "2025-11-12T12:14:56.925Z"
+  },
+  {
+    "strategy": "BB TRAP BANKNIFTY",
+    "signal": {
+      "action": "buy",
+      "symbol": "BANKNIFTY",
+      "entryPrice": 51590.5,
+      "stopLoss": 51550.5,
+      "target": 51650.5
+    },
+    "orders": [
+      {
+        "type": "CE",
+        "action": "BUY",
+        "strike": 59000,
+        "delta": 0.5,
+        "price": 262.95,
+        "security_id": 50091
+      },
+      {
+        "type": "PE",
+        "action": "SELL",
+        "strike": 59000,
+        "delta": -0.5,
+        "price": 284.6,
+        "security_id": 50092
+      }
+    ],
+    "results": [],
+    "status": "ACTIVE",
+    "timestamp": "2025-11-21T05:42:35.042Z"
+  },
+  {
+    "strategy": "BB TRAP BANKNIFTY",
+    "signal": {
+      "action": "buy",
+      "symbol": "BANKNIFTY",
+      "entryPrice": 51590.5,
+      "stopLoss": 51550.5,
+      "target": 51650.5
+    },
+    "orders": [
+      {
+        "type": "CE",
+        "action": "BUY",
+        "strike": 59000,
+        "delta": 0.51,
+        "price": 272.95,
+        "security_id": 50091
+      },
+      {
+        "type": "PE",
+        "action": "SELL",
+        "strike": 59000,
+        "delta": -0.49,
+        "price": 266.45,
+        "security_id": 50092
+      }
+    ],
+    "results": [],
+    "status": "ACTIVE",
+    "timestamp": "2025-11-21T05:45:15.381Z"
+  },
+  {
+    "strategy": "BB TRAP BANKNIFTY",
+    "signal": {
+      "action": "buy",
+      "symbol": "BANKNIFTY1!",
+      "entryPrice": 58645.6,
+      "stopLoss": 58755.6,
+      "target": 58145.6
+    },
+    "orders": [
+      {
+        "type": "CE",
+        "action": "BUY",
+        "strike": 59000,
+        "delta": 0.52,
+        "price": 261.5,
+        "security_id": 50091
+      },
+      {
+        "type": "PE",
+        "action": "SELL",
+        "strike": 59000,
+        "delta": -0.49,
+        "price": 273.1,
+        "security_id": 50092
+      }
+    ],
+    "results": [
+      {
+        "success": false,
+        "error": "Request failed with status code 401",
+        "clientName": "Avisekh ghosh",
+        "order": {
+          "type": "CE",
+          "action": "BUY",
+          "strike": 59000,
+          "delta": 0.52,
+          "price": 261.5,
+          "security_id": 50091
+        }
+      },
+      {
+        "success": false,
+        "error": "Request failed with status code 401",
+        "clientName": "Avisekh ghosh",
+        "order": {
+          "type": "PE",
+          "action": "SELL",
+          "strike": 59000,
+          "delta": -0.49,
+          "price": 273.1,
+          "security_id": 50092
+        }
+      }
+    ],
+    "status": "ACTIVE",
+    "timestamp": "2025-11-21T06:09:52.713Z"
+  },
+  {
+    "strategy": "BB TRAP BANKNIFTY",
+    "signal": {
+      "action": "buy",
+      "symbol": "BANKNIFTY1!",
+      "entryPrice": 58645.6,
+      "stopLoss": 58755.6,
+      "target": 58145.6
+    },
+    "orders": [
+      {
+        "type": "CE",
+        "action": "BUY",
+        "strike": 59000,
+        "delta": 0.51,
+        "price": 260.6,
+        "security_id": 50091
+      },
+      {
+        "type": "PE",
+        "action": "SELL",
+        "strike": 59000,
+        "delta": -0.49,
+        "price": 271.3,
+        "security_id": 50092
+      }
+    ],
+    "results": [
+      {
+        "success": false,
+        "error": "Request failed with status code 401",
+        "clientName": "Avisekh ghosh",
+        "order": {
+          "type": "CE",
+          "action": "BUY",
+          "strike": 59000,
+          "delta": 0.51,
+          "price": 260.6,
+          "security_id": 50091
+        }
+      },
+      {
+        "success": false,
+        "error": "Request failed with status code 401",
+        "clientName": "Avisekh ghosh",
+        "order": {
+          "type": "PE",
+          "action": "SELL",
+          "strike": 59000,
+          "delta": -0.49,
+          "price": 271.3,
+          "security_id": 50092
+        }
+      }
+    ],
+    "status": "ACTIVE",
+    "timestamp": "2025-11-21T06:15:24.438Z"
+  },
+  {
+    "strategy": "BB TRAP BANKNIFTY",
+    "signal": {
+      "action": "buy",
+      "symbol": "BANKNIFTY1!",
+      "entryPrice": 58645.6,
+      "stopLoss": 58755.6,
+      "target": 58145.6
+    },
+    "orders": [
+      {
+        "type": "CE",
+        "action": "BUY",
+        "strike": 59000,
+        "delta": 0.51,
+        "price": 265,
+        "security_id": 50091
+      },
+      {
+        "type": "PE",
+        "action": "SELL",
+        "strike": 59000,
+        "delta": -0.49,
+        "price": 266.2,
+        "security_id": 50092
+      }
+    ],
+    "results": [
+      {
+        "success": false,
+        "error": "Request failed with status code 401",
+        "clientName": "Avisekh ghosh",
+        "order": {
+          "type": "CE",
+          "action": "BUY",
+          "strike": 59000,
+          "delta": 0.51,
+          "price": 265,
+          "security_id": 50091
+        }
+      },
+      {
+        "success": false,
+        "error": "Request failed with status code 401",
+        "clientName": "Avisekh ghosh",
+        "order": {
+          "type": "PE",
+          "action": "SELL",
+          "strike": 59000,
+          "delta": -0.49,
+          "price": 266.2,
+          "security_id": 50092
+        }
+      }
+    ],
+    "status": "ACTIVE",
+    "timestamp": "2025-11-21T06:16:15.307Z"
   }
 ]

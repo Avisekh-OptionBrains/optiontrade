@@ -88,6 +88,7 @@
 
 const { MongoClient } = require("mongodb");
 const mongoose = require("mongoose");
+const prisma = require('./prismaClient')
 require("dotenv").config();
 
 const mongoUri = process.env.TESTLIST;
@@ -109,13 +110,19 @@ async function connectToDatabase() {
   }
 }
 
-// Connect using Mongoose
+// Connect using Mongoose (for MongoDB models)
 async function initializeDatabaseConnection() {
   try {
-    await mongoose.connect(mongoUri, {});
-    console.log("Mongoose connected successfully.");
+    await prisma.$connect()
+    console.log("Prisma connected to PostgreSQL.")
+
+    // Also connect to MongoDB for symbol lookup
+    if (mongoUri) {
+      await mongoose.connect(mongoUri, {});
+      console.log("Mongoose connected to MongoDB for symbol lookup");
+    }
   } catch (error) {
-    console.error("Mongoose connection error:", error);
+    console.error("Database connection error:", error)
   }
 }
 
@@ -123,7 +130,7 @@ async function findSymbolInDatabase(symbol) {
   try {
     await connectToDatabase(); // Ensure client is connected before querying
 
-    // Use Angel_api database instead of EPICRISE
+    // Use Angel_api database for symbol lookup
     const database = client.db("Angel_api");
     const collection = database.collection("totalscript");
 
@@ -132,40 +139,37 @@ async function findSymbolInDatabase(symbol) {
       name: symbol,
     };
 
-    console.log(`Searching for symbol: ${symbol} in Angel_api database`);
+    console.log(`🔍 Searching for symbol: ${symbol} in Angel_api database`);
     const results = await collection.find(query).toArray();
-    console.log(`Found ${results.length} results for symbol: ${symbol}`);
+    console.log(`📊 Found ${results.length} results for symbol: ${symbol}`);
 
     for (let result of results) {
       if (result.symbol && result.symbol.endsWith("-EQ")) {
-        console.log(`Found matching symbol: ${result.symbol} with token: ${result.token}`);
+        console.log(`✅ Found matching symbol: ${result.symbol} with token: ${result.token}`);
         return result;
       }
     }
 
-    console.log(`No -EQ symbol found for: ${symbol}`);
+    console.log(`⚠️ No -EQ symbol found for: ${symbol}`);
     return null;
   } catch (error) {
-    console.error("Database query error:", error);
+    console.error("❌ Database query error:", error);
     return null;
   }
 }
 
 async function main() {
-  await connectToDatabase();
+  await initializeDatabaseConnection()
 
-  // Check both databases
-  const epicriseDb = client.db("EPICRISE");
   const angelDb = client.db("Angel_api");
-
-  console.log("Database connection established for both EPICRISE and Angel_api");
+  console.log("Database connection established for PostgreSQL and MongoDB");
 
   // Test symbol lookup
   const testSymbol = await findSymbolInDatabase("SBIN");
   if (testSymbol) {
-    console.log("Symbol lookup test successful:", testSymbol.symbol);
+    console.log("✅ Symbol lookup test successful:", testSymbol.symbol);
   } else {
-    console.log("Symbol lookup test failed");
+    console.log("⚠️ Symbol lookup test failed");
   }
 }
 
@@ -173,4 +177,4 @@ module.exports = {
   initializeDatabaseConnection,
   findSymbolInDatabase,
   main,
-};
+}

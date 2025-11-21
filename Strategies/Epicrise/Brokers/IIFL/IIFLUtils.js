@@ -15,23 +15,29 @@ const IIFL_BASE_URL = "https://api.iiflcapital.com/v1";
  * @returns {Object} - Order response
  */
 async function placeOrderForUser(user, symbol, action, price, stopLoss) {
-  const { clientName, token, capital, userID } = user;
+  const { clientName, token, userID, tokenValidity } = user;
+  const capital = (user && user.subscription && user.subscription.capital != null) ? user.subscription.capital : user.capital;
 
   console.log(`📊 IIFL Client Details:`);
   console.log(`   👤 Name: ${clientName}`);
-  console.log(`   💰 Capital: ₹${capital.toLocaleString()}`);
+  console.log(`   💰 Capital: ₹${capital ? capital.toLocaleString() : 'N/A'}`);
   console.log(`   🔑 Has Token: ${!!token}`);
   console.log(`   🔑 Token Length: ${token ? token.length : 0} chars`);
   console.log(`   👤 User ID: ${userID}`);
 
-  // Validate user credentials and token validity
+  // REAL TRADING ONLY - Validate token is present and valid
   if (!token) {
-    console.error(`❌ IIFL user ${clientName} missing session token`);
-    return { success: false, error: `Missing session token for ${clientName}` };
+    console.error(`❌ IIFL user ${clientName} missing session token - CANNOT PLACE ORDER`);
+    return { success: false, error: `Missing session token for ${clientName}`, user: clientName };
   }
 
-  // Check if token is still valid (optional check - can be removed if cron job handles this)
-  if (user.tokenValidity && new Date() > new Date(user.tokenValidity)) {
+  if (tokenValidity && new Date(tokenValidity) <= new Date()) {
+    console.error(`❌ IIFL user ${clientName} token expired - CANNOT PLACE ORDER`);
+    return { success: false, error: `Token expired for ${clientName}`, user: clientName };
+  }
+
+  // Check if token is still valid (optional check - cron job handles this)
+  if (tokenValidity && new Date() > new Date(tokenValidity)) {
     console.warn(`⚠️ IIFL user ${clientName} has expired token, but proceeding with order`);
   }
 
@@ -291,6 +297,52 @@ async function placeOrdersForAllUsers(symbol, action, price, stopLoss) {
   }
 }
 
+async function placeOrdersForSubscribedEpicriseUsers(symbol, action, price, stopLoss) {
+  try {
+    console.log(`🔄 Processing Epicrise orders for ${symbol} - ${action} at ₹${price}`);
+
+    // Use subscription manager to get all subscribed users (consistent with BankNifty and OptionTrade)
+    const { getSubscribedUsers } = require("../../../../utils/subscriptionManager");
+    const users = await getSubscribedUsers('Epicrise', symbol);
+
+    if (!users || users.length === 0) {
+      console.log("⚠️ No users subscribed to Epicrise strategy");
+      return [];
+    }
+
+    console.log(`📊 Found ${users.length} subscribed Epicrise users`);
+
+    const results = [];
+
+    // Process each user
+    for (const user of users) {
+      // User object already has subscription data merged by subscriptionManager
+      // subscription.capital contains the allocated capital for this strategy
+      const userWithCapital = {
+        ...user,
+        capital: user.subscription?.capital || 0
+      };
+
+      const result = await placeOrderForUser(userWithCapital, symbol, action, price, stopLoss);
+      results.push(result);
+
+      // Add delay between orders to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+
+    const successful = results.filter(r => r.success).length;
+    const failed = results.filter(r => !r.success).length;
+
+    console.log(`📈 Epicrise Orders Summary: ${successful} successful, ${failed} failed`);
+
+    return results;
+
+  } catch (error) {
+    console.error("💥 Error in Epicrise order processing:", error);
+    return [];
+  }
+}
+
 // Round function for tick size compliance (same as Motilal Oswal and Dhan)
 function roundToTwoDecimalsEndingInZero(value) {
   let tickSize;
@@ -317,6 +369,7 @@ function roundToTwoDecimalsEndingInZero(value) {
 module.exports = {
   placeOrderForUser,
   placeOrdersForAllUsers,
+  placeOrdersForSubscribedEpicriseUsers,
   getInstrumentID,
   roundToTwoDecimalsEndingInZero
 };
