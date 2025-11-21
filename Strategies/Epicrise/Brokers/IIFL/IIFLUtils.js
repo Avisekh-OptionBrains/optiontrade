@@ -111,6 +111,35 @@ async function placeOrderForUser(user, symbol, action, price, stopLoss) {
     console.log(`📊 Response Headers:`, JSON.stringify(response.headers, null, 2));
     console.log(`📊 Raw Response Data:`, JSON.stringify(response.data, null, 2));
 
+    // Save successful order response to database
+    try {
+      const { prisma } = require("../../../../prismaClient");
+
+      const orderIdValue = response.data?.data?.orderNumber || response.data?.orderNumber || null;
+      const uniqueOrderIdValue = response.data?.data?.exchangeOrderId || response.data?.exchangeOrderId || null;
+
+      await prisma.orderResponse.create({
+        data: {
+          clientName: clientName,
+          broker: "IIFL",
+          symbol: symbol,
+          transactionType: action.toUpperCase(),
+          orderType: "LIMIT",
+          price: price,
+          quantity: quantity,
+          status: "SUCCESS",
+          orderId: orderIdValue,
+          uniqueOrderId: uniqueOrderIdValue,
+          message: `Epicrise ${action} ${symbol}`,
+          response: response.data,
+          timestamp: new Date()
+        }
+      });
+      console.log(`💾 Order response saved to database for ${clientName} - Status: SUCCESS`);
+    } catch (dbError) {
+      console.error(`❌ Error saving order response to database for ${clientName}:`, dbError.message);
+    }
+
     // Place stop loss order if provided
     if (stopLoss && stopLoss > 0) {
       console.log(`🛡️ IIFL - Preparing stop loss order at ₹${stopLoss}`);
@@ -211,6 +240,32 @@ async function placeOrderForUser(user, symbol, action, price, stopLoss) {
       statusText: error.response?.statusText,
       data: error.response?.data
     }, null, 2));
+
+    // Save failed order response to database
+    try {
+      const { prisma } = require("../../../../prismaClient");
+
+      await prisma.orderResponse.create({
+        data: {
+          clientName: clientName,
+          broker: "IIFL",
+          symbol: symbol,
+          transactionType: action.toUpperCase(),
+          orderType: "LIMIT",
+          price: price,
+          quantity: quantity,
+          status: "FAILED",
+          orderId: null,
+          uniqueOrderId: null,
+          message: `Epicrise ${action} ${symbol} - FAILED`,
+          response: { error: error.response?.data || error.message },
+          timestamp: new Date()
+        }
+      });
+      console.log(`💾 Failed order response saved to database for ${clientName}`);
+    } catch (dbError) {
+      console.error(`❌ Error saving failed order response to database for ${clientName}:`, dbError.message);
+    }
 
     return {
       success: false,
@@ -366,10 +421,71 @@ function roundToTwoDecimalsEndingInZero(value) {
   return parseFloat(rounded);
 }
 
+/**
+ * Send Telegram notification for Epicrise orders
+ */
+async function sendTelegramNotification(symbol, action, price, stopLoss, results) {
+  try {
+    const { sendMessageToTelegram } = require("../Utils/utilities");
+    const CONFIG = require("../Utils/config");
+
+    const botToken = CONFIG.EPICRISE.TELEGRAM_BOT_TOKEN;
+    const channelId = CONFIG.EPICRISE.CHANNEL_ID;
+
+    if (!botToken || !channelId) {
+      console.log("⚠️ Telegram credentials not configured, skipping notification");
+      return { success: false, error: "Telegram not configured" };
+    }
+
+    const successful = results.filter(r => r.success).length;
+    const failed = results.filter(r => !r.success).length;
+    const mainEmoji = action.toLowerCase() === "buy" ? "📈" : "📉";
+    const actionEmoji = action.toLowerCase() === "buy" ? "🟢" : "🔴";
+    const riskPerShare = Math.abs(stopLoss - price).toFixed(2);
+    const riskPercentage = ((Math.abs(stopLoss - price) / price) * 100).toFixed(2);
+
+    let message = `${mainEmoji} EPICRISE TRADING SIGNAL ${mainEmoji}
+
+${actionEmoji} Action: ${action.toUpperCase()}
+📌 Symbol: ${symbol}
+💰 Entry Price: ₹${price.toFixed(2)}
+🛑 Stop Loss: ₹${stopLoss.toFixed(2)}
+
+📊 Risk Management:
+├─ Risk per share: ₹${riskPerShare}
+└─ Risk percentage: ${riskPercentage}%
+
+📈 Execution Summary:
+├─ ✅ Successful: ${successful}
+├─ ❌ Failed: ${failed}
+└─ 📊 Total: ${results.length}
+
+⏰ Time: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
+
+⚠️ Note: Always use proper risk management and position sizing.`;
+
+    console.log("\n📤 Sending Telegram notification...");
+    const result = await sendMessageToTelegram(botToken, channelId, message, 0, false);
+
+    if (result.ok) {
+      console.log(`✅ Telegram notification sent successfully (Message ID: ${result.messageId})`);
+      return { success: true, messageId: result.messageId };
+    } else {
+      console.error(`❌ Failed to send Telegram notification:`, result.error);
+      return { success: false, error: result.error };
+    }
+
+  } catch (error) {
+    console.error("❌ Error sending Telegram notification:", error.message);
+    return { success: false, error: error.message };
+  }
+}
+
 module.exports = {
   placeOrderForUser,
   placeOrdersForAllUsers,
   placeOrdersForSubscribedEpicriseUsers,
   getInstrumentID,
-  roundToTwoDecimalsEndingInZero
+  roundToTwoDecimalsEndingInZero,
+  sendTelegramNotification
 };

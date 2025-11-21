@@ -53,22 +53,30 @@ router.post("/broker/register", async (req, res) => {
       return res.status(400).json({ success: false, error: "Unknown strategy" })
     }
 
-    // Step 1: Fetch REAL broker token from BrokerToken table
-    console.log("\n📝 Step 1: Fetching REAL broker token...")
+    // Step 1: Fetch REAL broker account from shared database
+    console.log("\n📝 Step 1: Fetching broker account from shared database...")
     const brokerAccount = await prisma.brokerAccount.findFirst({
       where: {
-        clientId: clientId,
+        userId: userId,
+        brokerType: 'IIFL',
         isActive: true
       }
     });
 
     if (!brokerAccount) {
-      console.log(`❌ BROKER ACCOUNT NOT FOUND - Cannot register user without broker account`);
-      return res.status(400).json({ success: false, error: "Broker account not found" });
+      console.log(`❌ BROKER ACCOUNT NOT FOUND for userId: ${userId}`);
+      console.log(`   Please create a broker account first in the main application`);
+      return res.status(400).json({
+        success: false,
+        error: "Broker account not found. Please link your broker account in the main application first."
+      });
     }
 
     console.log(`   ✅ Found BrokerAccount: ${brokerAccount.id}`);
+    console.log(`   Client ID: ${brokerAccount.clientId}`);
 
+    // Step 1b: Fetch broker token from shared database
+    console.log("\n📝 Step 1b: Fetching broker token from shared database...")
     const brokerToken = await prisma.brokerToken.findFirst({
       where: {
         brokerAccountId: brokerAccount.id,
@@ -79,8 +87,12 @@ router.post("/broker/register", async (req, res) => {
     });
 
     if (!brokerToken) {
-      console.log(`❌ NO ACTIVE BROKER TOKEN - Cannot register user without valid token`);
-      return res.status(400).json({ success: false, error: "No active broker token found" });
+      console.log(`❌ NO ACTIVE BROKER TOKEN for brokerAccountId: ${brokerAccount.id}`);
+      console.log(`   Please authenticate your broker account in the main application`);
+      return res.status(400).json({
+        success: false,
+        error: "No active broker token. Please authenticate your broker account in the main application."
+      });
     }
 
     const realToken = brokerToken.accessToken;
@@ -160,31 +172,96 @@ router.post("/broker/register", async (req, res) => {
 
 router.post("/configure-strategy", async (req, res) => {
   try {
+    console.log("\n" + "=".repeat(80))
+    console.log("⚙️  CONFIGURE STRATEGY REQUEST")
+    console.log("=".repeat(80))
+    console.log("📥 Request Body:", JSON.stringify(req.body, null, 2))
+
     const { userId, strategyId, strategyName, brokerClientId, brokerClientName, capitalPerTrade, allocatedCapital, lotSize } = req.body || {}
-    if (!userId || !strategyName) return res.status(400).json({ success: false, error: "Missing required fields" })
+
+    if (!userId || !strategyName) {
+      console.log("❌ Missing required fields")
+      return res.status(400).json({ success: false, error: "Missing required fields" })
+    }
+
     const subModel = getSubscriptionModel(strategyName)
-    if (!subModel) return res.status(400).json({ success: false, error: "Unknown strategy" })
+    console.log(`\n📋 Strategy Mapping: ${strategyName} → ${subModel}`)
+
+    if (!subModel) {
+      console.log("❌ Unknown strategy")
+      return res.status(400).json({ success: false, error: "Unknown strategy" })
+    }
+
+    // First, verify subscription exists
+    console.log(`\n🔍 Checking if subscription exists for userId: ${userId}`)
+    const existingSub = await prisma[subModel].findFirst({ where: { userID: userId } })
+
+    if (!existingSub) {
+      console.log(`❌ NO SUBSCRIPTION FOUND for userId: ${userId}`)
+      console.log(`   This means /broker/register was not called or failed`)
+      console.log(`   Please ensure broker account is registered first`)
+      return res.status(400).json({
+        success: false,
+        error: "No subscription found. Please register broker account first."
+      })
+    }
+
+    console.log(`✅ Found existing subscription:`, {
+      id: existingSub.id,
+      userID: existingSub.userID,
+      enabled: existingSub.enabled,
+      lotSize: existingSub.lotSize,
+      capital: existingSub.capital
+    })
 
     const updateData = {}
     const settings = { strategyId, brokerType: 'IIFL', brokerClientId, brokerClientName, capitalPerTrade, allocatedCapital, lotSize }
 
     if (subModel === "epicriseSubscription") {
       updateData.capital = Number(allocatedCapital || capitalPerTrade || 0)
-      console.log(`✅ Configuring Epic Rise for ${userId}: Capital = ₹${updateData.capital}`)
+      console.log(`\n💰 Configuring Epic Rise for ${userId}: Capital = ₹${updateData.capital}`)
     } else {
       // OptionTrade or BankNifty - use lotSize
       updateData.lotSize = Number(lotSize || 1)
-      console.log(`✅ Configuring ${strategyName} for ${userId}: Lot Size = ${updateData.lotSize}`)
+      console.log(`\n📊 Configuring ${strategyName} for ${userId}: Lot Size = ${updateData.lotSize}`)
     }
 
     updateData.customSettings = settings
 
+    console.log(`\n🔄 Updating subscription with data:`, updateData)
     const result = await prisma[subModel].updateMany({ where: { userID: userId }, data: updateData })
     console.log(`📊 Update result: ${result.count} subscriptions updated`)
 
-    return res.json({ success: true, message: `Strategy configured successfully`, data: { lotSize: updateData.lotSize, capital: updateData.capital } })
+    if (result.count === 0) {
+      console.log(`⚠️  WARNING: 0 subscriptions updated even though subscription exists!`)
+      console.log(`   This should not happen - possible race condition`)
+    }
+
+    // Verify the update
+    const updatedSub = await prisma[subModel].findFirst({ where: { userID: userId } })
+    console.log(`\n✅ Verified updated subscription:`, {
+      id: updatedSub.id,
+      userID: updatedSub.userID,
+      enabled: updatedSub.enabled,
+      lotSize: updatedSub.lotSize,
+      capital: updatedSub.capital,
+      customSettings: updatedSub.customSettings
+    })
+
+    console.log("=".repeat(80) + "\n")
+
+    return res.json({
+      success: true,
+      message: `Strategy configured successfully`,
+      data: {
+        lotSize: updateData.lotSize,
+        capital: updateData.capital,
+        subscriptionId: updatedSub.id
+      }
+    })
   } catch (e) {
     console.error(`❌ Error configuring strategy: ${e.message}`)
+    console.error(e.stack)
     return res.status(500).json({ success: false, error: e.message })
   }
 })

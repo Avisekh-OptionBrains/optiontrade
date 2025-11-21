@@ -28,6 +28,7 @@ initializeDatabaseConnection();
 
 const app = express();
 const server = http.createServer(app);
+// Read port from environment variable, default to 3001
 const PORT = process.env.PORT || 3001;
 
 // Initialize WebSocket Manager

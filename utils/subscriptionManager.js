@@ -9,6 +9,8 @@ const { calculateQuantity } = require('../constants/lotSizes');
  */
 async function getSubscribedUsers(strategy, symbol = null) {
   try {
+    console.log(`\n🔍 Getting subscribed users for strategy: ${strategy}, symbol: ${symbol || 'N/A'}`);
+
     let subscriptionModel;
 
     switch (strategy) {
@@ -25,26 +27,42 @@ async function getSubscribedUsers(strategy, symbol = null) {
         throw new Error(`Unknown strategy: ${strategy}`);
     }
 
+    console.log(`📋 Using subscription model: ${subscriptionModel}`);
+
     // Get all enabled subscriptions
     const subscriptions = await prisma[subscriptionModel].findMany({ where: { enabled: true } });
 
+    console.log(`📊 Found ${subscriptions.length} enabled subscriptions in database`);
+
     if (!subscriptions || subscriptions.length === 0) {
       console.log(`⚠️ No users subscribed to ${strategy}`);
+      console.log(`   This means either:`);
+      console.log(`   1. No subscriptions were created (broker/register failed)`);
+      console.log(`   2. All subscriptions are disabled (enabled=false)`);
+      console.log(`   3. Wrong strategy name mapping`);
       return [];
     }
 
     // Get user details with tokens for each subscription
     const users = [];
+    console.log(`\n🔄 Processing ${subscriptions.length} subscriptions...`);
+
     for (const subscription of subscriptions) {
+      console.log(`\n  📝 Processing subscription ID: ${subscription.id}, userID: ${subscription.userID}`);
+
       // Get clientId from subscription customSettings
       const clientId = subscription.customSettings?.clientId || subscription.customSettings?.brokerClientId;
 
       if (!clientId) {
-        console.warn(`⚠️ No clientId in subscription for user ${subscription.userID} - SKIPPING`);
+        console.warn(`  ⚠️ No clientId in subscription for user ${subscription.userID} - SKIPPING`);
+        console.warn(`     customSettings:`, subscription.customSettings);
         continue;
       }
 
+      console.log(`  ✅ Found clientId: ${clientId}`);
+
       // Find broker account from main app database by clientId
+      console.log(`  🔍 Looking for broker account with clientId: ${clientId}`);
       const brokerAccount = await prisma.brokerAccount.findFirst({
         where: {
           clientId: clientId,
@@ -53,11 +71,15 @@ async function getSubscribedUsers(strategy, symbol = null) {
       });
 
       if (!brokerAccount) {
-        console.warn(`⚠️ No broker account found for clientId ${clientId} - SKIPPING`);
+        console.warn(`  ⚠️ No broker account found for clientId ${clientId} - SKIPPING`);
+        console.warn(`     Make sure broker account is created in friendly-octo-engine`);
         continue;
       }
 
+      console.log(`  ✅ Found broker account: ${brokerAccount.clientName} (ID: ${brokerAccount.id})`);
+
       // Find active broker token for this account
+      console.log(`  🔍 Looking for active broker token...`);
       const brokerToken = await prisma.brokerToken.findFirst({
         where: {
           brokerAccountId: brokerAccount.id,
@@ -68,40 +90,44 @@ async function getSubscribedUsers(strategy, symbol = null) {
       });
 
       if (!brokerToken) {
-        console.error(`❌ No active broker token found for ${brokerAccount.clientName} - SKIPPING USER`);
+        console.error(`  ❌ No active broker token found for ${brokerAccount.clientName} - SKIPPING USER`);
+        console.error(`     Make sure to authenticate broker account in friendly-octo-engine`);
         continue;
       }
 
       // Token is valid - use it
       const token = brokerToken.accessToken;
       const tokenValidity = brokerToken.expiresAt;
-      console.log(`✅ Found REAL token for ${brokerAccount.clientName} (expires: ${tokenValidity})`);
+      console.log(`  ✅ Found REAL token for ${brokerAccount.clientName} (expires: ${tokenValidity})`);
 
       // Fix missing lotSize for old subscriptions (set default to 1)
       let lotSize = subscription.lotSize;
       if (!lotSize && strategy !== 'Epicrise') {
+        console.log(`  ⚠️ Missing lotSize for ${brokerAccount.clientName} - setting default to 1`);
         lotSize = 1;
         // Update in database
         await prisma[subscriptionModel].updateMany({ where: { userID: subscription.userID }, data: { lotSize: 1 } });
-        console.log(`⚠️ Fixed missing lotSize for ${brokerAccount.clientName} - set to 1 lot`);
+        console.log(`  ✅ Fixed missing lotSize in database`);
       }
 
-      console.log(`🔍 Debug for ${brokerAccount.clientName}:`, {
+      console.log(`  📊 Subscription config:`, {
         strategy,
         symbol,
         lotSize,
-        subscriptionLotSize: subscription.lotSize
+        capital: subscription.capital,
+        enabled: subscription.enabled
       });
 
       // Calculate quantity if symbol provided and lotSize exists
       let quantity = null;
       if (symbol && lotSize) {
         quantity = calculateQuantity(symbol, lotSize);
+        console.log(`  📈 Calculated quantity: ${quantity} (${lotSize} lots)`);
       } else {
-        console.log(`⚠️ Cannot calculate quantity - symbol: ${symbol}, lotSize: ${lotSize}`);
+        console.log(`  ⚠️ Cannot calculate quantity - symbol: ${symbol}, lotSize: ${lotSize}`);
       }
 
-      users.push({
+      const userData = {
         // User credentials (from BrokerAccount)
         userID: subscription.userID,
         clientName: brokerAccount.clientName,
@@ -120,10 +146,19 @@ async function getSubscribedUsers(strategy, symbol = null) {
           allowedSymbols: subscription.allowedSymbols,
           customSettings: subscription.customSettings
         }
+      };
+
+      users.push(userData);
+      console.log(`  ✅ Added user to execution list: ${brokerAccount.clientName}`);
+    }
+
+    console.log(`\n✅ FINAL RESULT: Found ${users.length} users subscribed to ${strategy} with valid tokens`);
+    if (users.length > 0) {
+      console.log(`   Users ready for execution:`);
+      users.forEach((u, i) => {
+        console.log(`   ${i + 1}. ${u.clientName} (${u.clientId}) - Lot Size: ${u.subscription.lotSize}, Quantity: ${u.subscription.quantity || 'N/A'}`);
       });
     }
-    
-    console.log(`✅ Found ${users.length} users subscribed to ${strategy}`);
     return users;
     
   } catch (error) {

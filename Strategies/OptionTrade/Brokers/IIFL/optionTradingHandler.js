@@ -647,8 +647,6 @@ async function squareOffPositions(activeTrade, dhanClient, securityMap) {
 
           // Save square-off order response to database
           try {
-            const OrderResponse = require('../../../../models/OrderResponse');
-
             // Extract order ID from response
             let orderIdValue = null;
             let uniqueOrderIdValue = null;
@@ -665,23 +663,23 @@ async function squareOffPositions(activeTrade, dhanClient, securityMap) {
               }
             }
 
-            const orderResponse = new OrderResponse({
-              clientName: user.clientName,
-              broker: "IIFL",
-              symbol: `NIFTY ${order.type} ${order.strike}`,
-              transactionType: order.action,
-              orderType: "LIMIT",
-              price: order.price,
-              quantity: quantity,
-              status: statusValue,
-              orderId: orderIdValue,
-              uniqueOrderId: uniqueOrderIdValue,
-              message: `BB TRAP OptionTrade SQUARE-OFF ${order.action} ${order.type} ${order.strike}`,
-              response: response.data,
-              timestamp: new Date()
+            await prisma.orderResponse.create({
+              data: {
+                clientName: user.clientName,
+                broker: "IIFL",
+                symbol: `NIFTY ${order.type} ${order.strike}`,
+                transactionType: order.action.toUpperCase(),
+                orderType: "LIMIT",
+                price: order.price,
+                quantity: quantity,
+                status: statusValue,
+                orderId: orderIdValue,
+                uniqueOrderId: uniqueOrderIdValue,
+                message: `BB TRAP OptionTrade SQUARE-OFF ${order.action} ${order.type} ${order.strike}`,
+                response: response.data,
+              }
             });
 
-            await orderResponse.save();
             console.log(`💾 Square-off order response saved to database for ${user.clientName} - Status: ${statusValue}`);
           } catch (dbError) {
             console.error(`❌ Error saving square-off order response to database for ${user.clientName}:`, dbError.message);
@@ -698,22 +696,23 @@ async function squareOffPositions(activeTrade, dhanClient, securityMap) {
 
           // Save failed square-off order response to database
           try {
-            const OrderResponse = require('../../../../models/OrderResponse');
-            const failedOrderResponse = new OrderResponse({
-              clientName: user.clientName,
-              broker: "IIFL",
-              symbol: `NIFTY ${order.type} ${order.strike}`,
-              transactionType: order.action,
-              orderType: "LIMIT",
-              price: order.price,
-              quantity: quantity,
-              status: "FAILED",
-              message: `BB TRAP OptionTrade SQUARE-OFF ${order.action} ${order.type} ${order.strike} - FAILED`,
-              response: { error: error.response?.data || error.message },
-              timestamp: new Date()
+            await prisma.orderResponse.create({
+              data: {
+                clientName: user.clientName,
+                broker: "IIFL",
+                symbol: `NIFTY ${order.type} ${order.strike}`,
+                transactionType: order.action.toUpperCase(),
+                orderType: "LIMIT",
+                price: order.price,
+                quantity: quantity,
+                status: "FAILED",
+                orderId: null,
+                uniqueOrderId: null,
+                message: `BB TRAP OptionTrade SQUARE-OFF ${order.action} ${order.type} ${order.strike} - FAILED`,
+                response: { error: error.response?.data || error.message },
+              }
             });
 
-            await failedOrderResponse.save();
             console.log(`💾 Failed square-off order response saved to database for ${user.clientName}`);
           } catch (dbError) {
             console.error(`❌ Error saving failed square-off order response to database for ${user.clientName}:`, dbError.message);

@@ -98,7 +98,7 @@ router.post("/", async (req, res) => {
 
       if (result.trade) {
         console.log(`\n💾 Database:`);
-        console.log(`   Trade ID: ${result.trade._id}`);
+        console.log(`   Trade ID: ${result.trade.id}`);
         console.log(`   Status: ${result.trade.status}`);
       } else if (result.message) {
         console.log(`\n💬 Message: ${result.message}`);
@@ -113,7 +113,7 @@ router.post("/", async (req, res) => {
         orders: result.orders,
         results: result.results,
         trade: result.trade ? {
-          id: result.trade._id,
+          id: result.trade.id,
           status: result.trade.status
         } : null,
         processingTime: `${processingTime}ms`

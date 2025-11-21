@@ -93,12 +93,18 @@ require("dotenv").config();
 
 const mongoUri = process.env.TESTLIST;
 
-const client = new MongoClient(mongoUri);
+// Only create MongoClient if mongoUri is defined
+const client = mongoUri ? new MongoClient(mongoUri) : null;
 
 let isConnected = false;
 
 // Connect using native MongoClient
 async function connectToDatabase() {
+  if (!client) {
+    console.warn("MongoDB URI not configured (TESTLIST env var not set). Skipping MongoDB connection.");
+    return;
+  }
+
   if (!isConnected) {
     try {
       await client.connect();
@@ -128,6 +134,11 @@ async function initializeDatabaseConnection() {
 
 async function findSymbolInDatabase(symbol) {
   try {
+    if (!client) {
+      console.warn("MongoDB not configured. Symbol lookup unavailable.");
+      return null;
+    }
+
     await connectToDatabase(); // Ensure client is connected before querying
 
     // Use Angel_api database for symbol lookup
@@ -161,15 +172,18 @@ async function findSymbolInDatabase(symbol) {
 async function main() {
   await initializeDatabaseConnection()
 
-  const angelDb = client.db("Angel_api");
-  console.log("Database connection established for PostgreSQL and MongoDB");
+  if (client) {
+    console.log("Database connection established for PostgreSQL and MongoDB");
 
-  // Test symbol lookup
-  const testSymbol = await findSymbolInDatabase("SBIN");
-  if (testSymbol) {
-    console.log("✅ Symbol lookup test successful:", testSymbol.symbol);
+    // Test symbol lookup
+    const testSymbol = await findSymbolInDatabase("SBIN");
+    if (testSymbol) {
+      console.log("✅ Symbol lookup test successful:", testSymbol.symbol);
+    } else {
+      console.log("⚠️ Symbol lookup test failed");
+    }
   } else {
-    console.log("⚠️ Symbol lookup test failed");
+    console.log("Database connection established for PostgreSQL only (MongoDB not configured)");
   }
 }
 

@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { placeOrdersForSubscribedEpicriseUsers } = require("./IIFLUtils");
+const { placeOrdersForSubscribedEpicriseUsers, sendTelegramNotification } = require("./IIFLUtils");
 
 /**
  * IIFL Trading Signal Handler
@@ -81,6 +81,15 @@ router.post("/", async (req, res) => {
       }
     });
 
+    // Send Telegram notification (always, even if some orders failed)
+    console.log("\n📱 Sending Telegram notification...");
+    const telegramResult = await sendTelegramNotification(symbol, action, price, stopLoss, results);
+    if (telegramResult.success) {
+      console.log(`✅ Telegram notification sent (Message ID: ${telegramResult.messageId})`);
+    } else {
+      console.log(`⚠️ Telegram notification failed: ${telegramResult.error}`);
+    }
+
     const response = {
       success: true,
       message: "IIFL orders processed",
@@ -90,7 +99,8 @@ router.post("/", async (req, res) => {
         successful: successful.length,
         failed: failed.length
       },
-      results: results
+      results: results,
+      telegram: telegramResult
     };
 
     console.log("🎯".repeat(50));

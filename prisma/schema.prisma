@@ -82,7 +82,7 @@ model OrderResponse {
   quantity        Int
   status          String
   orderId         String?
-  uniqueOrderId   String?  @unique
+  uniqueOrderId   String?
   message         String?
   timestamp       DateTime @default(now())
   response        Json?
@@ -93,6 +93,7 @@ model OrderResponse {
   @@index([status])
   @@index([symbol])
   @@index([timestamp])
+  @@index([uniqueOrderId])
 }
 
 model Client {
