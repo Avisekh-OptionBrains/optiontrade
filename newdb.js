@@ -116,17 +116,11 @@ async function connectToDatabase() {
   }
 }
 
-// Connect using Mongoose (for MongoDB models)
+// Connect using Prisma (PostgreSQL only)
 async function initializeDatabaseConnection() {
   try {
     await prisma.$connect()
     console.log("Prisma connected to PostgreSQL.")
-
-    // Also connect to MongoDB for symbol lookup
-    if (mongoUri) {
-      await mongoose.connect(mongoUri, {});
-      console.log("Mongoose connected to MongoDB for symbol lookup");
-    }
   } catch (error) {
     console.error("Database connection error:", error)
   }
@@ -134,34 +128,24 @@ async function initializeDatabaseConnection() {
 
 async function findSymbolInDatabase(symbol) {
   try {
-    if (!client) {
-      console.warn("MongoDB not configured. Symbol lookup unavailable.");
-      return null;
+    console.log(`🔍 Searching for symbol: ${symbol} in PostgreSQL IIFLInstrument table`);
+
+    // Query PostgreSQL for the symbol using Prisma
+    const instrument = await prisma.iIFLInstrument.findUnique({
+      where: { underlyingInstrumentName: symbol.toUpperCase() }
+    });
+
+    if (instrument) {
+      console.log(`✅ Found symbol: ${symbol} with instrumentId: ${instrument.instrumentId}`);
+      // Return in a format compatible with the existing code
+      return {
+        symbol: symbol,
+        token: instrument.instrumentId.toString(),
+        instrumentId: instrument.instrumentId
+      };
     }
 
-    await connectToDatabase(); // Ensure client is connected before querying
-
-    // Use Angel_api database for symbol lookup
-    const database = client.db("Angel_api");
-    const collection = database.collection("totalscript");
-
-    const query = {
-      exch_seg: "NSE",
-      name: symbol,
-    };
-
-    console.log(`🔍 Searching for symbol: ${symbol} in Angel_api database`);
-    const results = await collection.find(query).toArray();
-    console.log(`📊 Found ${results.length} results for symbol: ${symbol}`);
-
-    for (let result of results) {
-      if (result.symbol && result.symbol.endsWith("-EQ")) {
-        console.log(`✅ Found matching symbol: ${result.symbol} with token: ${result.token}`);
-        return result;
-      }
-    }
-
-    console.log(`⚠️ No -EQ symbol found for: ${symbol}`);
+    console.log(`⚠️ Symbol not found: ${symbol}`);
     return null;
   } catch (error) {
     console.error("❌ Database query error:", error);
@@ -171,19 +155,14 @@ async function findSymbolInDatabase(symbol) {
 
 async function main() {
   await initializeDatabaseConnection()
+  console.log("Database connection established for PostgreSQL (IIFLInstrument table)");
 
-  if (client) {
-    console.log("Database connection established for PostgreSQL and MongoDB");
-
-    // Test symbol lookup
-    const testSymbol = await findSymbolInDatabase("SBIN");
-    if (testSymbol) {
-      console.log("✅ Symbol lookup test successful:", testSymbol.symbol);
-    } else {
-      console.log("⚠️ Symbol lookup test failed");
-    }
+  // Test symbol lookup
+  const testSymbol = await findSymbolInDatabase("SBIN");
+  if (testSymbol) {
+    console.log("✅ Symbol lookup test successful:", testSymbol.symbol, "->", testSymbol.token);
   } else {
-    console.log("Database connection established for PostgreSQL only (MongoDB not configured)");
+    console.log("⚠️ Symbol lookup test failed");
   }
 }
 

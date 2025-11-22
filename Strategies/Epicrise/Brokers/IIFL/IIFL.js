@@ -11,38 +11,51 @@ router.post("/", async (req, res) => {
     console.log("🎯 IIFL trading signal received:");
     console.log("📥 Full Request Body:", JSON.stringify(req.body, null, 2));
 
-    // Use the same approach as Motilal - handle webhook data consistently
-    let messageText = req.body;
+    let signal = null;
 
-    // Extract messageText if it's wrapped in an object
-    if (typeof messageText === "object" && messageText.messageText) {
-      messageText = messageText.messageText;
-    } else if (typeof messageText === "object") {
-      // If it's an object but doesn't have messageText property, convert to string
-      messageText = JSON.stringify(messageText);
+    // Handle JSON format (direct object with symbol, price, transactionType, stopLoss)
+    if (typeof req.body === "object" && req.body.symbol && req.body.price !== undefined) {
+      console.log("📋 Detected JSON format signal");
+      signal = {
+        symbol: req.body.symbol.toUpperCase(),
+        price: parseFloat(req.body.price),
+        transactionType: req.body.transactionType,
+        stopLoss: parseFloat(req.body.stopLoss)
+      };
+    } else {
+      // Handle text format (messageText)
+      let messageText = req.body;
+
+      // Extract messageText if it's wrapped in an object
+      if (typeof messageText === "object" && messageText.messageText) {
+        messageText = messageText.messageText;
+      } else if (typeof messageText === "object") {
+        // If it's an object but doesn't have messageText property, convert to string
+        messageText = JSON.stringify(messageText);
+      }
+
+      // Validate that messageText exists
+      if (!messageText || typeof messageText !== "string") {
+        console.error("Invalid messageText received:", messageText);
+        return res.status(400).json({
+          success: false,
+          error: "Message text is required and must be a string"
+        });
+      }
+
+      console.log("Processing messageText:", messageText);
+
+      // Use the same parsing function as other brokers
+      const { EangelparseMessageText } = require("../../Utils/utilities");
+      signal = EangelparseMessageText(messageText);
     }
 
-    // Validate that messageText exists
-    if (!messageText || typeof messageText !== "string") {
-      console.error("Invalid messageText received:", messageText);
-      return res.status(400).json({
-        success: false,
-        error: "Message text is required and must be a string"
-      });
-    }
-
-    console.log("Processing messageText:", messageText);
-
-    // Use the same parsing function as other brokers
-    const { EangelparseMessageText } = require("../../Utils/utilities");
-    const signal = EangelparseMessageText(messageText);
-
-    // Validate parsed data (same as Motilal)
+    // Validate parsed data
     if (!signal) {
-      console.error("Failed to parse message:", messageText);
+      console.error("Failed to parse message:", JSON.stringify(req.body));
       return res.status(400).json({
         success: false,
-        error: "Invalid message format. Expected format: 'ER Buy/Sell SYMBOL at PRICE with Stop Loss at STOPLOSS'"
+        error: "Invalid message format. Expected format: 'ER Buy/Sell SYMBOL at PRICE with Stop Loss at STOPLOSS' or JSON with symbol, price, transactionType, stopLoss"
       });
     }
 

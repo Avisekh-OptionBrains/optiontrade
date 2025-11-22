@@ -1517,3 +1517,15 @@ enum TradeType {
   BUY
   SELL
 }
+
+// IIFL Instruments - Reference data for IIFL trading symbols
+model IIFLInstrument {
+  id                         Int     @id @default(autoincrement())
+  underlyingInstrumentName   String  @unique
+  instrumentId               Int
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+
+  @@index([underlyingInstrumentName])
+  @@map("iifl_instruments")
+}

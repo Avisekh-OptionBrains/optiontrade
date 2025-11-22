@@ -15,41 +15,87 @@ const IIFL_BASE_URL = "https://api.iiflcapital.com/v1";
  * @returns {Object} - Order response
  */
 async function placeOrderForUser(user, symbol, action, price, stopLoss) {
-  const { clientName, token, userID, tokenValidity } = user;
+  const { clientName, clientId, token, userID, tokenValidity } = user;
   const capital = (user && user.subscription && user.subscription.capital != null) ? user.subscription.capital : user.capital;
+
+  // Use clientId if available, otherwise use clientName
+  const identifier = clientId || clientName;
 
   console.log(`📊 IIFL Client Details:`);
   console.log(`   👤 Name: ${clientName}`);
+  console.log(`   🆔 Client ID: ${clientId || 'N/A'}`);
   console.log(`   💰 Capital: ₹${capital ? capital.toLocaleString() : 'N/A'}`);
   console.log(`   🔑 Has Token: ${!!token}`);
   console.log(`   🔑 Token Length: ${token ? token.length : 0} chars`);
   console.log(`   👤 User ID: ${userID}`);
 
+  let quantity = Math.floor(capital / price);
+
   // REAL TRADING ONLY - Validate token is present and valid
   if (!token) {
-    console.error(`❌ IIFL user ${clientName} missing session token - CANNOT PLACE ORDER`);
-    return { success: false, error: `Missing session token for ${clientName}`, user: clientName };
+    console.error(`❌ IIFL user ${identifier} missing session token - CANNOT PLACE ORDER`);
+    try {
+      const prisma = require("../../../../prismaClient");
+      await prisma.orderResponse.create({
+        data: {
+          clientName: identifier,
+          broker: "IIFL",
+          symbol: symbol,
+          transactionType: action.toUpperCase(),
+          orderType: "LIMIT",
+          price: price,
+          quantity: quantity > 0 ? quantity : 0,
+          status: "FAILED",
+          orderId: null,
+          uniqueOrderId: null,
+          message: `Epicrise ${action} ${symbol} - FAILED (Missing token)`,
+          response: { error: `Missing session token for ${identifier}` },
+          timestamp: new Date()
+        }
+      });
+    } catch (dbError) {}
+    return { success: false, error: `Missing session token for ${identifier}`, user: identifier };
   }
 
   if (tokenValidity && new Date(tokenValidity) <= new Date()) {
-    console.error(`❌ IIFL user ${clientName} token expired - CANNOT PLACE ORDER`);
-    return { success: false, error: `Token expired for ${clientName}`, user: clientName };
+    console.error(`❌ IIFL user ${identifier} token expired - CANNOT PLACE ORDER`);
+    try {
+      const prisma = require("../../../../prismaClient");
+      await prisma.orderResponse.create({
+        data: {
+          clientName: identifier,
+          broker: "IIFL",
+          symbol: symbol,
+          transactionType: action.toUpperCase(),
+          orderType: "LIMIT",
+          price: price,
+          quantity: quantity > 0 ? quantity : 0,
+          status: "FAILED",
+          orderId: null,
+          uniqueOrderId: null,
+          message: `Epicrise ${action} ${symbol} - FAILED (Token expired)`,
+          response: { error: `Token expired for ${identifier}` },
+          timestamp: new Date()
+        }
+      });
+    } catch (dbError) {}
+    return { success: false, error: `Token expired for ${identifier}`, user: identifier };
   }
 
   // Check if token is still valid (optional check - cron job handles this)
   if (tokenValidity && new Date() > new Date(tokenValidity)) {
-    console.warn(`⚠️ IIFL user ${clientName} has expired token, but proceeding with order`);
+    console.warn(`⚠️ IIFL user ${identifier} has expired token, but proceeding with order`);
   }
 
   // Login status check removed - cron job handles login, just proceed with order placement
 
   try {
-    // Calculate quantity based on capital and price
-    const quantity = Math.floor(capital / price);
+    
+    
     
     if (quantity <= 0) {
-      console.log(`⚠️ Insufficient capital for ${clientName}. Required: ₹${price}, Available: ₹${capital}`);
-      return { success: false, error: `Insufficient capital for ${clientName}` };
+      console.log(`⚠️ Insufficient capital for ${identifier}. Required: ₹${price}, Available: ₹${capital}`);
+      return { success: false, error: `Insufficient capital for ${identifier}` };
     }
 
     console.log(`📈 Placing ${action} order for ${quantity} shares of ${symbol} at ₹${price}`);
@@ -63,7 +109,7 @@ async function placeOrderForUser(user, symbol, action, price, stopLoss) {
       return {
         success: false,
         error: `Failed to get instrument ID for ${symbol}: ${error.message}`,
-        clientName: clientName
+        clientName: identifier
       };
     }
 
@@ -82,7 +128,7 @@ async function placeOrderForUser(user, symbol, action, price, stopLoss) {
       orderTag: `Epicrise_${symbol}_${Date.now()}` // Custom order tag
     }];
 
-    console.log(`📡 IIFL Raw Request Payload for ${clientName}:`);
+    console.log(`📡 IIFL Raw Request Payload for ${identifier}:`);
     console.log(JSON.stringify(orderPayload, null, 2));
     console.log(`🔗 IIFL API URL: ${IIFL_BASE_URL}/orders`);
     console.log(`🔑 IIFL Authorization Token: ${token ? `Bearer ${token.substring(0, 20)}...` : 'MISSING'}`);
@@ -93,7 +139,7 @@ async function placeOrderForUser(user, symbol, action, price, stopLoss) {
     }, null, 2));
 
     // Place order via IIFL API (Updated endpoint)
-    console.log(`🚀 Sending IIFL order request for ${clientName}...`);
+    console.log(`🚀 Sending IIFL order request for ${identifier}...`);
     const response = await axios.post(
       `${IIFL_BASE_URL}/orders`,
       orderPayload,
@@ -105,7 +151,7 @@ async function placeOrderForUser(user, symbol, action, price, stopLoss) {
       }
     );
 
-    console.log(`✅ IIFL Raw Order Response for ${clientName}:`);
+    console.log(`✅ IIFL Raw Order Response for ${identifier}:`);
     console.log(`📊 Status Code: ${response.status}`);
     console.log(`📊 Status Text: ${response.statusText}`);
     console.log(`📊 Response Headers:`, JSON.stringify(response.headers, null, 2));
@@ -113,14 +159,14 @@ async function placeOrderForUser(user, symbol, action, price, stopLoss) {
 
     // Save successful order response to database
     try {
-      const { prisma } = require("../../../../prismaClient");
+      const prisma = require("../../../../prismaClient");
 
       const orderIdValue = response.data?.data?.orderNumber || response.data?.orderNumber || null;
       const uniqueOrderIdValue = response.data?.data?.exchangeOrderId || response.data?.exchangeOrderId || null;
 
       await prisma.orderResponse.create({
         data: {
-          clientName: clientName,
+          clientName: identifier,
           broker: "IIFL",
           symbol: symbol,
           transactionType: action.toUpperCase(),
@@ -135,9 +181,9 @@ async function placeOrderForUser(user, symbol, action, price, stopLoss) {
           timestamp: new Date()
         }
       });
-      console.log(`💾 Order response saved to database for ${clientName} - Status: SUCCESS`);
+      console.log(`💾 Order response saved to database for ${identifier} - Status: SUCCESS`);
     } catch (dbError) {
-      console.error(`❌ Error saving order response to database for ${clientName}:`, dbError.message);
+      console.error(`❌ Error saving order response to database for ${identifier}:`, dbError.message);
     }
 
     // Place stop loss order if provided
@@ -214,13 +260,13 @@ async function placeOrderForUser(user, symbol, action, price, stopLoss) {
     return {
       success: true,
       data: response.data,
-      user: clientName,
+      user: identifier,
       quantity: quantity,
       price: price
     };
 
   } catch (error) {
-    console.error(`❌ IIFL Raw Order Error Response for ${clientName}:`);
+    console.error(`❌ IIFL Raw Order Error Response for ${identifier}:`);
     console.error(`   🔴 HTTP Status: ${error.response?.status || 'Unknown'}`);
     console.error(`   📝 Status Text: ${error.response?.statusText || 'Unknown'}`);
     console.error(`   📊 Raw Error Response Data:`);
@@ -243,11 +289,11 @@ async function placeOrderForUser(user, symbol, action, price, stopLoss) {
 
     // Save failed order response to database
     try {
-      const { prisma } = require("../../../../prismaClient");
+      const prisma = require("../../../../prismaClient");
 
       await prisma.orderResponse.create({
         data: {
-          clientName: clientName,
+          clientName: identifier,
           broker: "IIFL",
           symbol: symbol,
           transactionType: action.toUpperCase(),
@@ -262,15 +308,15 @@ async function placeOrderForUser(user, symbol, action, price, stopLoss) {
           timestamp: new Date()
         }
       });
-      console.log(`💾 Failed order response saved to database for ${clientName}`);
+      console.log(`💾 Failed order response saved to database for ${identifier}`);
     } catch (dbError) {
-      console.error(`❌ Error saving failed order response to database for ${clientName}:`, dbError.message);
+      console.error(`❌ Error saving failed order response to database for ${identifier}:`, dbError.message);
     }
 
     return {
       success: false,
       error: error.response?.data?.message || error.response?.data?.description || error.message,
-      user: clientName,
+      user: identifier,
       statusCode: error.response?.status,
       responseData: error.response?.data,
       fullErrorResponse: error.response?.data
@@ -426,8 +472,8 @@ function roundToTwoDecimalsEndingInZero(value) {
  */
 async function sendTelegramNotification(symbol, action, price, stopLoss, results) {
   try {
-    const { sendMessageToTelegram } = require("../Utils/utilities");
-    const CONFIG = require("../Utils/config");
+    const { sendMessageToTelegram } = require("../../Utils/utilities");
+    const CONFIG = require("../../Utils/config");
 
     const botToken = CONFIG.EPICRISE.TELEGRAM_BOT_TOKEN;
     const channelId = CONFIG.EPICRISE.CHANNEL_ID;
