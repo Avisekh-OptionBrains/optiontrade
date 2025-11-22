@@ -8,14 +8,13 @@ const { placeOrdersForSubscribedEpicriseUsers, sendTelegramNotification } = requ
  */
 router.post("/", async (req, res) => {
   try {
-    console.log("🎯 IIFL trading signal received:");
-    console.log("📥 Full Request Body:", JSON.stringify(req.body, null, 2));
+    console.log("IIFL signal received");
 
     let signal = null;
 
     // Handle JSON format (direct object with symbol, price, transactionType, stopLoss)
     if (typeof req.body === "object" && req.body.symbol && req.body.price !== undefined) {
-      console.log("📋 Detected JSON format signal");
+      
       signal = {
         symbol: req.body.symbol.toUpperCase(),
         price: parseFloat(req.body.price),
@@ -43,7 +42,7 @@ router.post("/", async (req, res) => {
         });
       }
 
-      console.log("Processing messageText:", messageText);
+      
 
       // Use the same parsing function as other brokers
       const { EangelparseMessageText } = require("../../Utils/utilities");
@@ -59,16 +58,16 @@ router.post("/", async (req, res) => {
       });
     }
 
-    console.log("📊 Parsed IIFL signal:", signal);
+    
     const { symbol, price, transactionType, stopLoss } = signal;
 
     // Map transactionType to action format expected by IIFL
     const action = transactionType.toUpperCase(); // "Buy" -> "BUY", "Sell" -> "SELL"
 
-    console.log(`🎯 IIFL Order Details: ${action} ${symbol} at ₹${price} (SL: ₹${stopLoss})`);
+    console.log(`IIFL Order: ${action} ${symbol} ₹${price} SL ₹${stopLoss}`);
 
     // Place orders for all IIFL users
-    console.log("🚀 Starting IIFL order placement...");
+    
     const results = await placeOrdersForSubscribedEpicriseUsers(
       symbol,
       action, // Use the mapped action parameter
@@ -80,27 +79,16 @@ router.post("/", async (req, res) => {
     const successful = results.filter(r => r.success);
     const failed = results.filter(r => !r.success);
 
-    console.log("📊 IIFL Order Summary:");
-    console.log(`   ✅ Successful: ${successful.length}`);
-    console.log(`   ❌ Failed: ${failed.length}`);
-    console.log(`   📈 Total: ${results.length}`);
+    console.log(`Summary: success ${successful.length}, failed ${failed.length}, total ${results.length}`);
 
     // Log individual results
-    results.forEach(result => {
-      if (result.success) {
-        console.log(`   ✅ ${result.user}: SUCCESS`);
-      } else {
-        console.log(`   ❌ ${result.user}: FAILED - ${result.error}`);
-      }
-    });
+    
 
     // Send Telegram notification (always, even if some orders failed)
-    console.log("\n📱 Sending Telegram notification...");
+    
     const telegramResult = await sendTelegramNotification(symbol, action, price, stopLoss, results);
-    if (telegramResult.success) {
-      console.log(`✅ Telegram notification sent (Message ID: ${telegramResult.messageId})`);
-    } else {
-      console.log(`⚠️ Telegram notification failed: ${telegramResult.error}`);
+    if (!telegramResult.success) {
+      console.log(`Telegram failed: ${telegramResult.error}`);
     }
 
     const response = {
@@ -116,12 +104,7 @@ router.post("/", async (req, res) => {
       telegram: telegramResult
     };
 
-    console.log("🎯".repeat(50));
-    console.log("✅ IIFL PROCESSING COMPLETED");
-    console.log("🎯".repeat(50));
-    console.log("📊 IIFL BROKER RESPONSE:");
-    console.log(JSON.stringify(response, null, 2));
-    console.log("🎯".repeat(50));
+    console.log("IIFL processing completed");
 
     res.json(response);
 

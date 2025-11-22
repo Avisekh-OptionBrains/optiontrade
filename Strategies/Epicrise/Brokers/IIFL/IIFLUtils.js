@@ -1,4 +1,5 @@
 const axios = require("axios");
+const VERBOSE = process.env.EPICRISE_LOG_VERBOSE === 'true';
 const IIFLUser = require("../../../../models/IIFLUser");
 const { findSymbolInDatabase } = require("../../../../newdb");
 
@@ -21,13 +22,9 @@ async function placeOrderForUser(user, symbol, action, price, stopLoss) {
   // Use clientId if available, otherwise use clientName
   const identifier = clientId || clientName;
 
-  console.log(`📊 IIFL Client Details:`);
-  console.log(`   👤 Name: ${clientName}`);
-  console.log(`   🆔 Client ID: ${clientId || 'N/A'}`);
-  console.log(`   💰 Capital: ₹${capital ? capital.toLocaleString() : 'N/A'}`);
-  console.log(`   🔑 Has Token: ${!!token}`);
-  console.log(`   🔑 Token Length: ${token ? token.length : 0} chars`);
-  console.log(`   👤 User ID: ${userID}`);
+  if (VERBOSE) {
+    console.log(`📊 IIFL Client: ${clientName} (${clientId || 'N/A'}) Capital: ₹${capital ? capital.toLocaleString() : 'N/A'}`);
+  }
 
   let quantity = Math.floor(capital / price);
 
@@ -98,7 +95,7 @@ async function placeOrderForUser(user, symbol, action, price, stopLoss) {
       return { success: false, error: `Insufficient capital for ${identifier}` };
     }
 
-    console.log(`📈 Placing ${action} order for ${quantity} shares of ${symbol} at ₹${price}`);
+    console.log(`📈 Placing ${action} ${symbol} qty ${quantity} at ₹${price}`);
 
     // Get instrument ID from database
     let instrumentId;
@@ -128,18 +125,14 @@ async function placeOrderForUser(user, symbol, action, price, stopLoss) {
       orderTag: `Epicrise_${symbol}_${Date.now()}` // Custom order tag
     }];
 
-    console.log(`📡 IIFL Raw Request Payload for ${identifier}:`);
-    console.log(JSON.stringify(orderPayload, null, 2));
-    console.log(`🔗 IIFL API URL: ${IIFL_BASE_URL}/orders`);
-    console.log(`🔑 IIFL Authorization Token: ${token ? `Bearer ${token.substring(0, 20)}...` : 'MISSING'}`);
-    console.log(`📤 IIFL Request Headers:`);
-    console.log(JSON.stringify({
-      "Content-Type": "application/json",
-      "Authorization": token ? `Bearer ${token.substring(0, 20)}...` : 'MISSING'
-    }, null, 2));
+    if (VERBOSE) {
+      console.log(`📡 IIFL Request Payload for ${identifier}:`);
+      console.log(JSON.stringify(orderPayload, null, 2));
+      console.log(`🔗 IIFL API URL: ${IIFL_BASE_URL}/orders`);
+    }
 
     // Place order via IIFL API (Updated endpoint)
-    console.log(`🚀 Sending IIFL order request for ${identifier}...`);
+    if (VERBOSE) console.log(`🚀 Sending IIFL order request for ${identifier}...`);
     const response = await axios.post(
       `${IIFL_BASE_URL}/orders`,
       orderPayload,
@@ -151,18 +144,24 @@ async function placeOrderForUser(user, symbol, action, price, stopLoss) {
       }
     );
 
-    console.log(`✅ IIFL Raw Order Response for ${identifier}:`);
-    console.log(`📊 Status Code: ${response.status}`);
-    console.log(`📊 Status Text: ${response.statusText}`);
-    console.log(`📊 Response Headers:`, JSON.stringify(response.headers, null, 2));
-    console.log(`📊 Raw Response Data:`, JSON.stringify(response.data, null, 2));
+    console.log(`✅ IIFL Order Response ${identifier}: ${response.status} ${response.statusText}`);
 
     // Save successful order response to database
     try {
       const prisma = require("../../../../prismaClient");
 
-      const orderIdValue = response.data?.data?.orderNumber || response.data?.orderNumber || null;
-      const uniqueOrderIdValue = response.data?.data?.exchangeOrderId || response.data?.exchangeOrderId || null;
+      const orderIdValue = (
+        response.data?.result?.[0]?.brokerOrderId ||
+        response.data?.data?.orderNumber ||
+        response.data?.orderNumber ||
+        null
+      );
+      const uniqueOrderIdValue = (
+        response.data?.result?.[0]?.exchangeOrderId ||
+        response.data?.data?.exchangeOrderId ||
+        response.data?.exchangeOrderId ||
+        null
+      );
 
       await prisma.orderResponse.create({
         data: {
@@ -181,18 +180,18 @@ async function placeOrderForUser(user, symbol, action, price, stopLoss) {
           timestamp: new Date()
         }
       });
-      console.log(`💾 Order response saved to database for ${identifier} - Status: SUCCESS`);
+      if (VERBOSE) console.log(`💾 Order response saved to database for ${identifier} - SUCCESS`);
     } catch (dbError) {
       console.error(`❌ Error saving order response to database for ${identifier}:`, dbError.message);
     }
 
     // Place stop loss order if provided
     if (stopLoss && stopLoss > 0) {
-      console.log(`🛡️ IIFL - Preparing stop loss order at ₹${stopLoss}`);
+      if (VERBOSE) console.log(`🛡️ Preparing stop loss order at ₹${stopLoss}`);
 
       setTimeout(async () => {
         try {
-          console.log("🛑 IIFL - Creating stop-loss order with proper tick size");
+          if (VERBOSE) console.log("🛑 Creating stop-loss order with tick size");
 
           // Calculate proper trigger and limit prices with tick size rounding
           const triggerPrice = roundToTwoDecimalsEndingInZero(stopLoss);
@@ -214,11 +213,9 @@ async function placeOrderForUser(user, symbol, action, price, stopLoss) {
           // Round the limit price to proper tick size
           const roundedLimitPrice = roundToTwoDecimalsEndingInZero(limitPrice);
 
-          console.log(`🔧 IIFL Stop-loss price calculation:`);
-          console.log(`   Original Stop Loss: ₹${stopLoss}`);
-          console.log(`   Trigger Price (rounded): ₹${triggerPrice}`);
-          console.log(`   Limit Price (${stopLossTransactionType}): ₹${roundedLimitPrice}`);
-          console.log(`   Transaction Type: ${action.toUpperCase()} → ${stopLossTransactionType}`);
+          if (VERBOSE) {
+            console.log(`🔧 Stop-loss calc: SL ₹${stopLoss}, trigger ₹${triggerPrice}, limit ₹${roundedLimitPrice}, type ${stopLossTransactionType}`);
+          }
 
           // Use the same instrumentId that was already looked up for the primary order
           const stopLossPayload = [{
@@ -236,8 +233,10 @@ async function placeOrderForUser(user, symbol, action, price, stopLoss) {
             orderTag: `Epicrise_SL_${symbol}_${Date.now()}`
           }];
 
-          console.log("📋 IIFL Stop-loss order payload:");
-          console.log(JSON.stringify(stopLossPayload, null, 2));
+          if (VERBOSE) {
+            console.log("📋 Stop-loss payload:");
+            console.log(JSON.stringify(stopLossPayload, null, 2));
+          }
 
           const slResponse = await axios.post(
             `${IIFL_BASE_URL}/orders`,
@@ -250,7 +249,7 @@ async function placeOrderForUser(user, symbol, action, price, stopLoss) {
             }
           );
 
-          console.log(`✅ IIFL stop loss order placed for ${clientName}:`, JSON.stringify(slResponse.data, null, 2));
+          if (VERBOSE) console.log(`✅ Stop loss order placed for ${clientName}`);
         } catch (slError) {
           console.error(`❌ Error placing stop loss for ${clientName}:`, slError.response?.data || slError.message);
         }

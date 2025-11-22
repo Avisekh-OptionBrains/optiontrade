@@ -1,4 +1,5 @@
 const axios = require("axios");
+const VERBOSE = process.env.TELEGRAM_LOG_VERBOSE === 'true';
 
 function createFakeResponse(resolve) {
   return {
@@ -40,10 +41,12 @@ async function sendMessageToTelegram(botToken, channelId, messageText, retryCoun
       return { ok: false, error: "Invalid message text provided" };
     }
 
-    console.log(`🚀 TELEGRAM - Sending message (attempt ${retryCount + 1}/${maxRetries + 1})`);
-    console.log(`   Channel ID: ${channelId}`);
-    console.log(`   Message length: ${messageText.length} characters`);
-    console.log(`   Parse mode: ${useMarkdown ? 'MarkdownV2' : 'None'}`);
+    if (VERBOSE) {
+      console.log(`🚀 TELEGRAM - Sending message (attempt ${retryCount + 1}/${maxRetries + 1})`);
+      console.log(`   Channel ID: ${channelId}`);
+      console.log(`   Message length: ${messageText.length} characters`);
+      console.log(`   Parse mode: ${useMarkdown ? 'MarkdownV2' : 'None'}`);
+    }
 
     const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
     let requestData;
@@ -79,10 +82,12 @@ async function sendMessageToTelegram(botToken, channelId, messageText, retryCoun
       }
     });
 
-    console.log("✅ TELEGRAM - API response received:");
-    console.log(`   Status: ${response.status}`);
-    console.log(`   OK: ${response.data?.ok}`);
-    console.log(`   Message ID: ${response.data?.result?.message_id || 'N/A'}`);
+    if (VERBOSE) {
+      console.log("✅ TELEGRAM - API response received:");
+      console.log(`   Status: ${response.status}`);
+      console.log(`   OK: ${response.data?.ok}`);
+      console.log(`   Message ID: ${response.data?.result?.message_id || 'N/A'}`);
+    }
 
     // Validate response structure
     if (!response.data) {
@@ -96,13 +101,13 @@ async function sendMessageToTelegram(botToken, channelId, messageText, retryCoun
       // If MarkdownV2 parsing failed and we haven't tried plain text yet, retry with plain text
       if (response.status === 400 && useMarkdown &&
           (errorMsg.includes("can't parse entities") || errorMsg.includes("parse entities"))) {
-        console.log(`🔄 TELEGRAM - MarkdownV2 parsing failed, retrying with plain text...`);
+        if (VERBOSE) console.log(`🔄 TELEGRAM - MarkdownV2 parsing failed, retrying with plain text...`);
         return sendMessageToTelegram(botToken, channelId, messageText, retryCount, false);
       }
 
       // Retry on server errors (5xx) but not client errors (4xx)
       if (response.status >= 500 && retryCount < maxRetries) {
-        console.log(`🔄 TELEGRAM - Retrying due to server error in ${retryDelay * (retryCount + 1)}ms...`);
+        if (VERBOSE) console.log(`🔄 TELEGRAM - Retrying due to server error in ${retryDelay * (retryCount + 1)}ms...`);
         await new Promise(resolve => setTimeout(resolve, retryDelay * (retryCount + 1)));
         return sendMessageToTelegram(botToken, channelId, messageText, retryCount + 1, useMarkdown);
       }
@@ -125,7 +130,7 @@ async function sendMessageToTelegram(botToken, channelId, messageText, retryCoun
       };
     }
 
-    console.log("🎉 TELEGRAM - Message sent successfully!");
+    if (VERBOSE) console.log("🎉 TELEGRAM - Message sent successfully!");
     return {
       ok: true,
       data: response.data,
@@ -133,17 +138,12 @@ async function sendMessageToTelegram(botToken, channelId, messageText, retryCoun
     };
 
   } catch (error) {
-    console.error(`❌ TELEGRAM - Request failed (attempt ${retryCount + 1}):`, {
-      message: error.message,
-      code: error.code,
-      response: error.response?.data,
-      status: error.response?.status,
-    });
+    console.error(`❌ TELEGRAM - Request failed (attempt ${retryCount + 1})`);
 
     // Handle specific error types
     if (error.code === "ECONNABORTED" || error.code === "ETIMEDOUT") {
       if (retryCount < maxRetries) {
-        console.log(`🔄 TELEGRAM - Retrying due to timeout in ${retryDelay * (retryCount + 1)}ms...`);
+        if (VERBOSE) console.log(`🔄 TELEGRAM - Retrying due to timeout in ${retryDelay * (retryCount + 1)}ms...`);
         await new Promise(resolve => setTimeout(resolve, retryDelay * (retryCount + 1)));
         return sendMessageToTelegram(botToken, channelId, messageText, retryCount + 1, useMarkdown);
       }
@@ -164,7 +164,7 @@ async function sendMessageToTelegram(botToken, channelId, messageText, retryCoun
 
     // Retry on network errors
     if (retryCount < maxRetries && (error.code === "ECONNRESET" || error.code === "EPIPE")) {
-      console.log(`🔄 TELEGRAM - Retrying due to network error in ${retryDelay * (retryCount + 1)}ms...`);
+      if (VERBOSE) console.log(`🔄 TELEGRAM - Retrying due to network error in ${retryDelay * (retryCount + 1)}ms...`);
       await new Promise(resolve => setTimeout(resolve, retryDelay * (retryCount + 1)));
       return sendMessageToTelegram(botToken, channelId, messageText, retryCount + 1, useMarkdown);
     }
