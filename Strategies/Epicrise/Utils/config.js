@@ -1,0 +1,19 @@
+// config.js
+require("dotenv").config();
+
+const CONFIG = {
+  EPICRISE: {
+    TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN_EPICRISE,
+    CHANNEL_ID: process.env.TELEGRAM_CHANNEL_ID_EPICRISE,
+  },
+  FLASH45: {
+    TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN_FLASH45,
+    CHANNEL_ID: process.env.TELEGRAM_CHANNEL_ID_FLASH45,
+  },
+  QUICKFLIP: {
+    TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN_QUICKFLIP,
+    CHANNEL_ID: process.env.TELEGRAM_CHANNEL_ID_QUICKFLIP,
+  },
+};
+
+module.exports = CONFIG;
