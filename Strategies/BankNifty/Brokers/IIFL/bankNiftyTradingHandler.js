@@ -35,18 +35,18 @@ function readSecurityIdMap() {
   
   dataLines.forEach((line, index) => {
     if (!line.trim()) return;
-    
+
     const columns = line.split(",");
-    
+
     // Column indices (0-based):
     // 2: SECURITY_ID
-    // 13: STRIKE_PRICE
-    // 14: OPTION_TYPE
-    
+    // 12: STRIKE_PRICE
+    // 13: OPTION_TYPE
+
     const securityId = columns[2]?.trim();
-    const strikePrice = columns[13]?.trim();
-    const optionType = columns[14]?.trim();
-    
+    const strikePrice = columns[12]?.trim();
+    const optionType = columns[13]?.trim();
+
     if (securityId && strikePrice && optionType) {
       const key = `${strikePrice}_${optionType}`;
       securityMap[key] = parseInt(securityId);

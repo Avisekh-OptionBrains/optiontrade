@@ -334,5 +334,131 @@
     ],
     "status": "ACTIVE",
     "timestamp": "2025-11-12T12:14:56.925Z"
+  },
+  {
+    "strategy": "BB TRAP BANKNIFTY",
+    "signal": {
+      "action": "buy",
+      "symbol": "BANKNIFTY1!",
+      "entryPrice": 58645.6,
+      "stopLoss": 58755.6,
+      "target": 58145.6
+    },
+    "orders": [
+      {
+        "type": "CE",
+        "action": "BUY",
+        "strike": 60300,
+        "delta": 0.5,
+        "price": 634.35
+      },
+      {
+        "type": "PE",
+        "action": "SELL",
+        "strike": 60300,
+        "delta": -0.5,
+        "price": 881.35
+      }
+    ],
+    "results": [
+      {
+        "success": true,
+        "data": {
+          "status": "Ok",
+          "message": "Success",
+          "result": [
+            {
+              "status": "EC941",
+              "message": "Invalid parameter : 'instrumentId' cannot be empty or null.",
+              "requestTime": "27-Nov-2025 20:02:22"
+            }
+          ]
+        },
+        "clientName": "avisekh",
+        "quantity": 35,
+        "price": 634.35,
+        "order": {
+          "type": "CE",
+          "action": "BUY",
+          "strike": 60300,
+          "delta": 0.5,
+          "price": 634.35
+        }
+      },
+      {
+        "success": true,
+        "data": {
+          "status": "Ok",
+          "message": "Success",
+          "result": [
+            {
+              "status": "EC941",
+              "message": "Invalid parameter : 'instrumentId' cannot be empty or null.",
+              "requestTime": "27-Nov-2025 20:02:23"
+            }
+          ]
+        },
+        "clientName": "murlibalani",
+        "quantity": 35,
+        "price": 634.35,
+        "order": {
+          "type": "CE",
+          "action": "BUY",
+          "strike": 60300,
+          "delta": 0.5,
+          "price": 634.35
+        }
+      },
+      {
+        "success": true,
+        "data": {
+          "status": "Ok",
+          "message": "Success",
+          "result": [
+            {
+              "status": "EC941",
+              "message": "Invalid parameter : 'instrumentId' cannot be empty or null.",
+              "requestTime": "27-Nov-2025 20:02:24"
+            }
+          ]
+        },
+        "clientName": "avisekh",
+        "quantity": 35,
+        "price": 881.35,
+        "order": {
+          "type": "PE",
+          "action": "SELL",
+          "strike": 60300,
+          "delta": -0.5,
+          "price": 881.35
+        }
+      },
+      {
+        "success": true,
+        "data": {
+          "status": "Ok",
+          "message": "Success",
+          "result": [
+            {
+              "status": "EC941",
+              "message": "Invalid parameter : 'instrumentId' cannot be empty or null.",
+              "requestTime": "27-Nov-2025 20:02:25"
+            }
+          ]
+        },
+        "clientName": "murlibalani",
+        "quantity": 35,
+        "price": 881.35,
+        "order": {
+          "type": "PE",
+          "action": "SELL",
+          "strike": 60300,
+          "delta": -0.5,
+          "price": 881.35
+        }
+      }
+    ],
+    "status": "ACTIVE",
+    "timestamp": "2025-11-27T14:32:26.913Z"
   }
 ]

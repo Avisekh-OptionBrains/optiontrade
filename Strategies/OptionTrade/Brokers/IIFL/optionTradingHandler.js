@@ -34,15 +34,17 @@ function readSecurityIdMap() {
     if (!line || line.split(",").every((cell) => !cell)) continue;
 
     const columns = line.split(",");
-    const securityId = columns[2]; // SECURITY_ID
-    const strikePrice = columns[13]; // STRIKE_PRICE
-    const optionType = columns[14]; // OPTION_TYPE (CE or PE)
+    const securityId = columns[2]; // SECURITY_ID (index 2)
+    const strikePrice = columns[12]; // STRIKE_PRICE (index 12)
+    const optionType = columns[13]; // OPTION_TYPE - CE or PE (index 13)
 
     if (securityId && strikePrice && optionType) {
       const key = `${strikePrice}_${optionType}`;
       securityIdMap[key] = parseInt(securityId);
     }
   }
+
+  console.log(`✅ Security ID map created with ${Object.keys(securityIdMap).length} entries`);
 
   return securityIdMap;
 }
